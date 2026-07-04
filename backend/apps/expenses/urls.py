@@ -2,6 +2,9 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    BotBroadcastTargetsView,
+    BotExpenseView,
+    BotNotificationView,
     BudgetSimulatorView,
     CalendarView,
     CategoryViewSet,
@@ -29,4 +32,8 @@ urlpatterns = [
     path('history/main/',           HistoryMainView.as_view(),   name='history-main'),
     path('history/week-details/',   WeekDetailsView.as_view(),   name='week-details'),
     path('history/month-details/',  MonthDetailsView.as_view(),  name='month-details'),
+    # Bot-only (X-Bot-Secret auth)
+    path('expenses/bot-create/',         BotExpenseView.as_view(),          name='bot-expense'),
+    path('expenses/bot-notify/',         BotNotificationView.as_view(),     name='bot-notify'),
+    path('expenses/bot-broadcast-targets/', BotBroadcastTargetsView.as_view(), name='bot-broadcast-targets'),
 ]

@@ -3,20 +3,40 @@ from decimal import Decimal
 
 import pytz
 from dateutil.relativedelta import relativedelta
+from django.conf import settings as django_settings
 from django.db.models import Q, Sum
 from django.db.models.functions import TruncDay
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.users.models import UserProfile
 from .models import Category, QuickTemplate, Transaction
 from .serializers import (
     CategorySerializer,
     QuickTemplateSerializer,
     TransactionSerializer,
 )
+
+
+def _bot_auth(request):
+    """
+    Validates the bot-to-backend internal request.
+    Returns (UserProfile, None) on success or (None, Response) on failure.
+    """
+    secret = request.headers.get('X-Bot-Secret', '')
+    if secret != getattr(django_settings, 'BOT_SECRET', ''):
+        return None, Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+    raw_id = request.headers.get('X-Telegram-Id', '')
+    try:
+        user = UserProfile.objects.get(telegram_id=int(raw_id))
+    except (UserProfile.DoesNotExist, ValueError, TypeError):
+        return None, Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    return user, None
 
 _DAYS_RU = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
 
@@ -470,3 +490,93 @@ class MonthDetailsView(APIView):
             grouped[week_num]['transactions'].append(_tx_to_dict(t))
 
         return Response(sorted(grouped.values(), key=lambda x: x['week_num']))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Bot-only endpoints (authenticated via X-Bot-Secret + X-Telegram-Id headers)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class BotExpenseView(APIView):
+    """
+    POST /api/v1/expenses/bot-create/
+    Headers: X-Bot-Secret, X-Telegram-Id
+    Body:    { "amount": 25000, "description": "обед" }
+
+    Creates a transaction for the identified user without JWT.
+    Used by the Telegram bot quick-input feature.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+
+        serializer = TransactionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tx = serializer.save(user=user)
+        return Response({
+            'id':          tx.id,
+            'amount':      float(tx.amount),
+            'description': tx.description or '',
+            'created_at':  tx.created_at.isoformat(),
+        }, status=status.HTTP_201_CREATED)
+
+
+class BotNotificationView(APIView):
+    """
+    PATCH /api/v1/expenses/bot-notify/
+    Headers: X-Bot-Secret, X-Telegram-Id
+    Body:    { "notification_setting": "daily" | "weekly" | "off" }
+
+    Updates the notification preference for the identified user.
+    """
+    permission_classes = [AllowAny]
+
+    def patch(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+
+        setting = request.data.get('notification_setting', '')
+        allowed = {'off', 'daily', 'weekly'}
+        if setting not in allowed:
+            return Response(
+                {'detail': f'Invalid setting. Use one of: {", ".join(sorted(allowed))}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.notification_setting = setting
+        user.save(update_fields=['notification_setting'])
+        return Response({'notification_setting': setting})
+
+
+class BotBroadcastTargetsView(APIView):
+    """
+    GET /api/v1/expenses/bot-broadcast-targets/?mode=daily
+    Header: X-Bot-Secret
+
+    Returns the list of telegram_ids for users who have the given
+    notification mode enabled. Called by Celery/APScheduler to know
+    whom to notify before posting to the bot's broadcast endpoint.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        secret = request.headers.get('X-Bot-Secret', '')
+        if secret != getattr(django_settings, 'BOT_SECRET', ''):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        mode = request.query_params.get('mode', '')
+        if mode not in ('daily', 'weekly'):
+            return Response(
+                {'detail': 'mode must be "daily" or "weekly".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ids = list(
+            UserProfile.objects
+            .filter(notification_setting=mode, is_active=True)
+            .values_list('telegram_id', flat=True)
+        )
+        return Response({'telegram_ids': ids, 'count': len(ids)})

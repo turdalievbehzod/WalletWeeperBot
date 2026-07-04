@@ -149,6 +149,8 @@ SIMPLE_JWT = {
 # Telegram
 # ──────────────────────────────────────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
+# Shared secret for bot ↔ backend internal API calls (no JWT needed)
+BOT_SECRET = env('BOT_SECRET', default='change-me-in-production')
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CORS — Telegram Mini Apps are served from t.me / telegram domains

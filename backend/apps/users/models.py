@@ -31,9 +31,20 @@ class UserProfile(AbstractBaseUser, PermissionsMixin):
     username    = models.CharField(max_length=64, blank=True, null=True)
     first_name  = models.CharField(max_length=64, blank=True, null=True)
     last_name   = models.CharField(max_length=64, blank=True, null=True)
+    NOTIFICATION_CHOICES = [
+        ('off',    'Отключены'),
+        ('daily',  'Каждый вечер'),
+        ('weekly', 'Раз в неделю'),
+    ]
+
     currency    = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
     # IANA timezone string, e.g. "Asia/Tashkent" — sent by the frontend on first auth
     timezone    = models.CharField(max_length=64, default='UTC')
+    notification_setting = models.CharField(
+        max_length=8,
+        choices=NOTIFICATION_CHOICES,
+        default='off',
+    )
 
     is_active   = models.BooleanField(default=True)
     is_staff    = models.BooleanField(default=False)
