@@ -55,7 +55,10 @@ async def handle_quick_expense(message: Message, django: DjangoClient):
                 'Откройте приложение один раз, чтобы создать профиль.',
             )
         else:
-            await message.reply(f'❌ Ошибка при сохранении: {e.detail}')
+            await message.reply(
+                f'❌ Ошибка при сохранении (код {e.status_code}).',
+                parse_mode=None,
+            )
         return
 
     # Форматируем сумму с разделителями тысяч

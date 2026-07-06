@@ -42,7 +42,7 @@ async def on_notify_change(call: CallbackQuery, django: DjangoClient):
     try:
         await django.set_notification(telegram_id, setting)
     except DjangoAPIError as e:
-        await call.answer(f'Ошибка: {e.detail}', show_alert=True)
+        await call.answer(f'Ошибка (код {e.status_code}). Попробуйте позже.', show_alert=True)
         return
 
     label = _LABELS.get(setting, setting)
