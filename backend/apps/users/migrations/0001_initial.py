@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('last_name', models.CharField(blank=True, max_length=64, null=True)),
                 ('currency', models.CharField(
                     choices=[('USD','US Dollar'),('UZS','Uzbek Som'),('EUR','Euro'),('RUB','Russian Ruble')],
-                    default='USD', max_length=3,
+                    default='UZS', max_length=3,
                 )),
                 ('timezone', models.CharField(default='UTC', max_length=64)),
                 ('notification_setting', models.CharField(
