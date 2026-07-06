@@ -38,10 +38,14 @@ jobs:
             docker compose up -d web
 
             echo "==> Restarting bot..."
-            kill $(pgrep -f "venv/bin/python main.py") 2>/dev/null || true
+            if [ -f /root/bot.pid ]; then
+              kill $(cat /root/bot.pid) 2>/dev/null || true
+              rm /root/bot.pid
+            fi
             sleep 2
             cd bot
             setsid nohup venv/bin/python main.py > /root/bot.log 2>&1 &
+            echo $! > /root/bot.pid
             disown $!
 
             echo "==> Deploy complete!"
