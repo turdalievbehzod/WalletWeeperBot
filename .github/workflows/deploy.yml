@@ -24,6 +24,7 @@ jobs:
 
             echo "==> Rebuilding frontend..."
             cd frontend
+            chmod +x node_modules/.bin/vite
             npm run build
             cd ..
 
