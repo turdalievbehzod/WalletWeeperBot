@@ -29,17 +29,19 @@ jobs:
             cd ..
 
             echo "==> Restarting frontend server..."
-            pkill -f "serve -s" || true
+            kill $(lsof -t -i :3000) 2>/dev/null || true
             sleep 1
-            nohup serve -s frontend/dist -p 3000 > /root/serve.log 2>&1 &
+            setsid nohup serve -s frontend/dist -p 3000 > /root/serve.log 2>&1 &
+            disown $!
 
             echo "==> Restarting Django..."
             docker compose up -d web
 
             echo "==> Restarting bot..."
-            pkill -f "venv/bin/python main.py" || true
+            kill $(pgrep -f "venv/bin/python main.py") 2>/dev/null || true
             sleep 2
             cd bot
-            nohup venv/bin/python main.py > /root/bot.log 2>&1 &
+            setsid nohup venv/bin/python main.py > /root/bot.log 2>&1 &
+            disown $!
 
             echo "==> Deploy complete!"
