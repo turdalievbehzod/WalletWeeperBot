@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 
 import {
   authTelegram,
+  getProfile,
   getSummary,
   getHistoryMain,
   getWeekDetails,
@@ -73,6 +74,7 @@ export default function App() {
   // ── Auth on mount ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (authed) {
+      getProfile().then(setUser).catch(err => console.error('[Profile] Failed:', err))
       loadAll()
     } else {
       authenticate()

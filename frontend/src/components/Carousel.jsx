@@ -88,9 +88,10 @@ export default function Carousel({ summary, onCurrencyTap }) {
                     </span>
                     <button
                       onClick={e => { e.stopPropagation(); onCurrencyTap?.() }}
-                      className="text-xs opacity-85 underline decoration-dotted underline-offset-2"
+                      className="mt-1.5 flex items-center gap-1 pl-2.5 pr-2 py-1 rounded-full bg-white/25 active:bg-white/40 text-white text-xs font-semibold leading-none"
                     >
-                      {currency}
+                      <span>{currency}</span>
+                      <span className="text-[10px] opacity-90">⇄</span>
                     </button>
                   </motion.div>
                 </AnimatePresence>

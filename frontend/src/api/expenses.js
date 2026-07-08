@@ -4,6 +4,9 @@ import client from './client'
 export const authTelegram = (initData, timezone) =>
   client.post('/auth/', { initData, timezone }).then(r => r.data)
 
+export const getProfile = () =>
+  client.get('/auth/me/').then(r => r.data)
+
 // Carousel
 export const getSummary = () =>
   client.get('/summary/').then(r => r.data)
