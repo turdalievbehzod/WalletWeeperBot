@@ -54,3 +54,10 @@ export const createTransaction = (amount, categoryId, description = '') =>
 
 export const deleteTransaction = id =>
   client.delete(`/expenses/${id}/`)
+
+// User profile
+export const getExchangeRates = () =>
+  client.get('/exchange-rates/').then(r => r.data)
+
+export const updateProfile = (data) =>
+  client.patch('/auth/me/', data).then(r => r.data)

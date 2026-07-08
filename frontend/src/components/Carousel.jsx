@@ -11,7 +11,7 @@ const PERIODS = [
 const CIRCLE_SIZE = 160   // px, active circle diameter
 const SIDE_SCALE  = 0.72  // side circles are 72% of active size
 
-export default function Carousel({ summary }) {
+export default function Carousel({ summary, onCurrencyTap }) {
   const [activeIdx, setActiveIdx] = useState(1)   // start on "month"
   const [dragDir, setDragDir]     = useState(0)    // -1 left, +1 right
 
@@ -86,7 +86,12 @@ export default function Carousel({ summary }) {
                     <span className="text-2xl font-bold mt-1 leading-tight">
                       {fmtAmount(total)}
                     </span>
-                    <span className="text-xs opacity-85">{currency}</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); onCurrencyTap?.() }}
+                      className="text-xs opacity-85 underline decoration-dotted underline-offset-2"
+                    >
+                      {currency}
+                    </button>
                   </motion.div>
                 </AnimatePresence>
               ) : (

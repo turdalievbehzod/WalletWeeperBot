@@ -12,13 +12,14 @@ import {
   createTransaction,
 } from './api/expenses'
 
-import Carousel       from './components/Carousel'
-import ExpenseForm    from './components/ExpenseForm'
-import CategoryModal  from './components/CategoryModal'
-import TemplateModal  from './components/TemplateModal'
-import HistorySection from './components/HistorySection'
-import WeekDetails    from './components/WeekDetails'
-import MonthDetails   from './components/MonthDetails'
+import Carousel        from './components/Carousel'
+import ExpenseForm     from './components/ExpenseForm'
+import CategoryModal   from './components/CategoryModal'
+import TemplateModal   from './components/TemplateModal'
+import HistorySection  from './components/HistorySection'
+import WeekDetails     from './components/WeekDetails'
+import MonthDetails    from './components/MonthDetails'
+import CurrencyModal   from './components/CurrencyModal'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -48,9 +49,13 @@ export default function App() {
   // 'home' | 'week-details' | 'month-details'
   const [view, setView] = useState('home')
 
+  // ── User ──────────────────────────────────────────────────────────────────
+  const [user, setUser] = useState(null)
+
   // ── Modals ────────────────────────────────────────────────────────────────
   const [catModalOpen,  setCatModalOpen]  = useState(false)
   const [tmplModalOpen, setTmplModalOpen] = useState(false)
+  const [currModalOpen, setCurrModalOpen] = useState(false)
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [amount,   setAmount]   = useState('')
@@ -91,6 +96,7 @@ export default function App() {
       const data = await authTelegram(initData, timezone)
       localStorage.setItem('access_token',  data.access)
       localStorage.setItem('refresh_token', data.refresh)
+      setUser(data.user)
       setAuthed(true)
       await loadAll()
     } catch (err) {
@@ -192,7 +198,7 @@ export default function App() {
       <div className="max-w-sm mx-auto pb-10">
 
         {/* Карусель сумм */}
-        <Carousel summary={summary} />
+        <Carousel summary={summary} onCurrencyTap={() => setCurrModalOpen(true)} />
 
         <SectionDivider />
 
@@ -242,6 +248,20 @@ export default function App() {
             onApply={handleApplyTemplate}
             onClose={() => setTmplModalOpen(false)}
             onRefresh={() => getTemplates().then(d => setTemplates(d.results ?? d))}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {currModalOpen && user && (
+          <CurrencyModal
+            key="curr-modal"
+            currentCurrency={user.currency}
+            onClose={() => setCurrModalOpen(false)}
+            onChanged={updatedUser => {
+              setUser(updatedUser)
+              loadAll()
+            }}
           />
         )}
       </AnimatePresence>
