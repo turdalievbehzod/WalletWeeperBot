@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion'
 import TransactionItem from './TransactionItem'
 import { fmtAmount } from '../utils/format'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export default function WeekDetails({ days, onBack }) {
+  const { t } = useLanguage()
   return (
     <div className="min-h-screen" style={{ background: '#FFF5C4' }}>
       {/* Back header */}
@@ -16,14 +18,14 @@ export default function WeekDetails({ days, onBack }) {
           ←
         </motion.button>
         <h2 className="text-base font-semibold text-gray-800">
-          За прошлую неделю
+          {t('weekDetails.title')}
         </h2>
       </div>
 
       <div className="px-4 pb-8 space-y-5">
         {days.length === 0 && (
           <p className="text-center text-gray-400 py-12 text-sm">
-            Расходов за прошлую неделю нет
+            {t('weekDetails.empty')}
           </p>
         )}
 
@@ -40,7 +42,7 @@ export default function WeekDetails({ days, onBack }) {
                 {day.day_name}
               </span>
               <span className="bg-orange-500 text-white rounded-full px-3 py-1 text-xs font-semibold">
-                Итого: {fmtAmount(day.total_sum)}
+                {t('historySection.total', { amount: fmtAmount(day.total_sum) })}
               </span>
             </div>
 

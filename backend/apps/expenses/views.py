@@ -38,7 +38,15 @@ def _bot_auth(request):
 
     return user, None
 
-_DAYS_RU = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
+_DAYS = {
+    'ru': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
+    'en': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+}
+
+_WEEK_LABEL = {
+    'ru': 'Неделя {}',
+    'en': 'Week {}',
+}
 
 
 def _tx_to_dict(t: Transaction) -> dict:
@@ -430,12 +438,13 @@ class WeekDetailsView(APIView):
             .order_by('day', '-created_at')
         )
 
+        days = _DAYS.get(user.language, _DAYS['ru'])
         grouped: dict = {}
         for t in rows:
             key = t.day.strftime('%Y-%m-%d')
             if key not in grouped:
                 grouped[key] = {
-                    'day_name': _DAYS_RU[t.day.weekday()],
+                    'day_name': days[t.day.weekday()],
                     'date': key,
                     'total_sum': 0,
                     'transactions': [],
@@ -476,12 +485,13 @@ class MonthDetailsView(APIView):
             .order_by('day', '-created_at')
         )
 
+        week_label = _WEEK_LABEL.get(user.language, _WEEK_LABEL['ru'])
         grouped: dict = {}
         for t in rows:
             week_num = (t.day.day - 1) // 7 + 1
             if week_num not in grouped:
                 grouped[week_num] = {
-                    'week_label': f'Неделя {week_num}',
+                    'week_label': week_label.format(week_num),
                     'week_num': week_num,
                     'total_sum': 0,
                     'transactions': [],
@@ -549,6 +559,40 @@ class BotNotificationView(APIView):
         user.notification_setting = setting
         user.save(update_fields=['notification_setting'])
         return Response({'notification_setting': setting})
+
+
+class BotLanguageView(APIView):
+    """
+    GET   /api/v1/expenses/bot-language/  → { "language": "ru" | "en" }
+    PATCH /api/v1/expenses/bot-language/  Body: { "language": "ru" | "en" }
+    Headers: X-Bot-Secret, X-Telegram-Id
+
+    Reads/updates the bot user's language preference, shared with the mini app.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+        return Response({'language': user.language})
+
+    def patch(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+
+        language = request.data.get('language', '')
+        allowed = {'ru', 'en'}
+        if language not in allowed:
+            return Response(
+                {'detail': f'Invalid language. Use one of: {", ".join(sorted(allowed))}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.language = language
+        user.save(update_fields=['language'])
+        return Response({'language': language})
 
 
 class BotBroadcastTargetsView(APIView):

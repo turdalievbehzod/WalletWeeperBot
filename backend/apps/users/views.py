@@ -30,16 +30,32 @@ def _get_fx_rates() -> dict:
             rates = {'USD': 1.0, 'UZS': 12870.0, 'EUR': 0.93, 'RUB': 88.5}
     return rates
 
-# Default categories created for every new user on first login.
-_DEFAULT_CATEGORIES = [
-    {'name': 'Продукты',      'icon': '🛒'},
-    {'name': 'Транспорт',     'icon': '🚌'},
-    {'name': 'Развлечения',   'icon': '🎮'},
-    {'name': 'Рестораны',     'icon': '🍕'},
-    {'name': 'Здоровье',      'icon': '💊'},
-    {'name': 'Одежда',        'icon': '👗'},
-    {'name': 'Коммунальные',  'icon': '🏠'},
-]
+# Default categories created for every new user on first login, localized
+# by the language resolved at signup.
+_DEFAULT_CATEGORIES = {
+    'ru': [
+        {'name': 'Продукты',      'icon': '🛒'},
+        {'name': 'Транспорт',     'icon': '🚌'},
+        {'name': 'Развлечения',   'icon': '🎮'},
+        {'name': 'Рестораны',     'icon': '🍕'},
+        {'name': 'Здоровье',      'icon': '💊'},
+        {'name': 'Одежда',        'icon': '👗'},
+        {'name': 'Коммунальные',  'icon': '🏠'},
+    ],
+    'en': [
+        {'name': 'Groceries',    'icon': '🛒'},
+        {'name': 'Transport',    'icon': '🚌'},
+        {'name': 'Entertainment', 'icon': '🎮'},
+        {'name': 'Restaurants',  'icon': '🍕'},
+        {'name': 'Health',       'icon': '💊'},
+        {'name': 'Clothing',     'icon': '👗'},
+        {'name': 'Utilities',    'icon': '🏠'},
+    ],
+}
+
+
+def _resolve_signup_language(tg_user: dict) -> str:
+    return 'en' if tg_user.get('language_code') == 'en' else 'ru'
 
 
 class TelegramAuthView(APIView):
@@ -65,6 +81,7 @@ class TelegramAuthView(APIView):
         tg_user = validate_telegram_init_data(init_data)
 
         timezone = request.data.get('timezone', 'UTC')
+        language = _resolve_signup_language(tg_user)
 
         user, is_new = UserProfile.objects.get_or_create(
             telegram_id=tg_user['id'],
@@ -73,6 +90,7 @@ class TelegramAuthView(APIView):
                 'first_name': tg_user.get('first_name', ''),
                 'last_name':  tg_user.get('last_name', ''),
                 'timezone':   timezone,
+                'language':   language,
             },
         )
 
@@ -81,7 +99,7 @@ class TelegramAuthView(APIView):
             from apps.expenses.models import Category
             Category.objects.bulk_create([
                 Category(user=user, name=c['name'], icon=c['icon'], is_system=False)
-                for c in _DEFAULT_CATEGORIES
+                for c in _DEFAULT_CATEGORIES[language]
             ])
 
         refresh = RefreshToken.for_user(user)
@@ -127,13 +145,15 @@ class UserProfileView(APIView):
         if new_currency != old_currency:
             rates = _get_fx_rates()
             if old_currency in rates and new_currency in rates:
-                multiplier = Decimal(str(rates[new_currency] / rates[old_currency]))
-                from apps.expenses.models import Transaction
+                multiplier = Decimal(str(rates[new_currency])) / Decimal(str(rates[old_currency]))
+                output_field = DecimalField(max_digits=16, decimal_places=4)
+
+                from apps.expenses.models import QuickTemplate, Transaction
                 Transaction.objects.filter(user=request.user).update(
-                    amount=ExpressionWrapper(
-                        F('amount') * multiplier,
-                        output_field=DecimalField(max_digits=14, decimal_places=2),
-                    )
+                    amount=ExpressionWrapper(F('amount') * multiplier, output_field=output_field)
+                )
+                QuickTemplate.objects.filter(user=request.user).update(
+                    amount=ExpressionWrapper(F('amount') * multiplier, output_field=output_field)
                 )
 
         serializer.save()

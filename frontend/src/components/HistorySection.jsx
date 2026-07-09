@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import TransactionItem from './TransactionItem'
 import { fmtAmount } from '../utils/format'
 import { deleteTransaction } from '../api/expenses'
+import { useLanguage } from '../i18n/LanguageContext'
 
 // ─── Скелетон одной строки транзакции ────────────────────────────────────────
 function SkeletonRow() {
@@ -15,6 +16,7 @@ function SkeletonRow() {
 
 // ─── Один период (Сегодня / За прошлую неделю / За прошлый месяц) ────────────
 function HistoryBlock({ label, block, loading, onDetails, onRefresh }) {
+  const { t } = useLanguage()
   const transactions = block?.transactions ?? []
   const totalSum     = block?.total_sum    ?? 0
 
@@ -31,7 +33,7 @@ function HistoryBlock({ label, block, loading, onDetails, onRefresh }) {
           {label}
         </span>
         <span className="bg-orange-500 text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
-          {loading ? '...' : `Итого: ${fmtAmount(totalSum)}`}
+          {loading ? '...' : t('historySection.total', { amount: fmtAmount(totalSum) })}
         </span>
       </div>
 
@@ -53,7 +55,7 @@ function HistoryBlock({ label, block, loading, onDetails, onRefresh }) {
             />
           ))
         ) : (
-          <p className="text-sm text-gray-400 text-center py-3">Нет записей</p>
+          <p className="text-sm text-gray-400 text-center py-3">{t('historySection.empty')}</p>
         )}
       </div>
 
@@ -66,7 +68,7 @@ function HistoryBlock({ label, block, loading, onDetails, onRefresh }) {
             className="bg-blue-500 text-white rounded-full px-6 py-1.5 text-xs font-semibold
                        hover:bg-blue-600 transition-colors shadow-sm"
           >
-            Подробнее
+            {t('historySection.more')}
           </motion.button>
         </div>
       )}
@@ -87,6 +89,7 @@ function Divider() {
 
 // ─── Основной компонент ────────────────────────────────────────────────────────
 export default function HistorySection({ history, loading, onWeekDetails, onMonthDetails, onRefresh }) {
+  const { t } = useLanguage()
   // Блок всегда рендерится — скелетон показывается при loading=true
   return (
     <div className="px-4 py-2">
@@ -94,14 +97,14 @@ export default function HistorySection({ history, loading, onWeekDetails, onMont
       {/* Заголовок секции */}
       <div className="flex justify-center mb-4">
         <span className="bg-blue-500 text-white rounded-full px-5 py-1.5 text-sm font-semibold shadow-sm">
-          История расходов
+          {t('historySection.title')}
         </span>
       </div>
 
       <Divider />
 
       <HistoryBlock
-        label="Сегодня"
+        label={t('historySection.today')}
         block={history?.today}
         loading={loading}
         onRefresh={onRefresh}
@@ -110,7 +113,7 @@ export default function HistorySection({ history, loading, onWeekDetails, onMont
       <Divider />
 
       <HistoryBlock
-        label="За прошлую неделю"
+        label={t('historySection.lastWeek')}
         block={history?.last_week}
         loading={loading}
         onDetails={onWeekDetails}
@@ -120,7 +123,7 @@ export default function HistorySection({ history, loading, onWeekDetails, onMont
       <Divider />
 
       <HistoryBlock
-        label="За прошлый месяц"
+        label={t('historySection.lastMonth')}
         block={history?.last_month}
         loading={loading}
         onDetails={onMonthDetails}

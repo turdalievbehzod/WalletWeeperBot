@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export default function ExpenseForm({
   amount, setAmount,
@@ -8,6 +9,7 @@ export default function ExpenseForm({
   onSubmit,
   submitting,
 }) {
+  const { t } = useLanguage()
   const canSubmit = amount && parseFloat(amount) > 0
 
   return (
@@ -21,7 +23,7 @@ export default function ExpenseForm({
             inputMode="numeric"
             value={amount}
             onChange={e => setAmount(e.target.value)}
-            placeholder="Введите сумму"
+            placeholder={t('expenseForm.amountPlaceholder')}
             className="flex-1 text-sm text-gray-800 bg-transparent min-w-0"
           />
           {amount && parseFloat(amount) > 0 && (
@@ -41,7 +43,7 @@ export default function ExpenseForm({
           <span className={`text-sm font-medium truncate ${selectedCategory ? 'text-white' : 'text-gray-400'}`}>
             {selectedCategory
               ? `${selectedCategory.icon} ${selectedCategory.name}`
-              : 'Категория'}
+              : t('expenseForm.category')}
           </span>
           {selectedCategory && (
             <span className="text-green-300 font-bold ml-2">✓</span>
@@ -60,7 +62,7 @@ export default function ExpenseForm({
             : 'bg-gray-200 text-gray-400 cursor-not-allowed'
         }`}
       >
-        {submitting ? 'Добавляем...' : 'Добавить'}
+        {submitting ? t('expenseForm.adding') : t('expenseForm.add')}
       </motion.button>
 
       {/* Templates button */}
@@ -69,7 +71,7 @@ export default function ExpenseForm({
         whileTap={{ scale: 0.97 }}
         className="w-full h-12 rounded-2xl bg-blue-50 text-blue-500 font-semibold text-sm border border-blue-100 hover:bg-blue-100 transition-colors"
       >
-        Выбрать из указанных
+        {t('expenseForm.chooseFromList')}
       </motion.button>
     </div>
   )

@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createTemplate, deleteTemplate } from '../api/expenses'
 import { fmtAmount } from '../utils/format'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export default function TemplateModal({ templates, onApply, onClose, onRefresh }) {
+  const { t } = useLanguage()
   const [showForm, setShowForm]   = useState(false)
   const [newTitle, setNewTitle]   = useState('')
   const [newAmount, setNewAmount] = useState('')
@@ -70,7 +72,7 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <span className="text-white font-semibold text-base">Шаблоны</span>
+            <span className="text-white font-semibold text-base">{t('templateModal.title')}</span>
             <button
               onClick={() => setShowForm(v => !v)}
               className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-white font-bold text-lg leading-none hover:bg-white/35 transition-colors"
@@ -94,7 +96,7 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
                     autoFocus
                     value={newTitle}
                     onChange={e => setNewTitle(e.target.value)}
-                    placeholder="Введите товар"
+                    placeholder={t('templateModal.itemPlaceholder')}
                     className="flex-1 bg-white/20 text-white placeholder-white/60 rounded-xl px-3 py-2 text-sm min-w-0"
                   />
                   <input
@@ -102,7 +104,7 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
                     value={newAmount}
                     onChange={e => setNewAmount(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                    placeholder="Цена"
+                    placeholder={t('templateModal.pricePlaceholder')}
                     className="w-24 bg-white/20 text-white placeholder-white/60 rounded-xl px-3 py-2 text-sm"
                   />
                   <button
@@ -152,7 +154,7 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
 
             {templates.length === 0 && (
               <p className="text-white/70 text-sm text-center py-4">
-                Нет шаблонов. Нажмите + чтобы создать.
+                {t('templateModal.empty')}
               </p>
             )}
           </div>
@@ -168,7 +170,7 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
                 onClick={handleApply}
                 className="w-full bg-white text-orange-500 font-semibold rounded-2xl py-3 text-sm hover:bg-orange-50 transition-colors"
               >
-                Применить шаблон
+                {t('templateModal.apply')}
               </button>
             </motion.div>
           )}

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createCategory, deleteCategory } from '../api/expenses'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export default function CategoryModal({ categories, selectedId, onSelect, onClose, onRefresh }) {
+  const { t } = useLanguage()
   const [showForm, setShowForm] = useState(false)
   const [newName, setNewName]   = useState('')
   const [saving, setSaving]     = useState(false)
@@ -52,7 +54,7 @@ export default function CategoryModal({ categories, selectedId, onSelect, onClos
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <span className="text-white font-semibold text-base">Категории</span>
+            <span className="text-white font-semibold text-base">{t('categoryModal.title')}</span>
             <button
               onClick={() => setShowForm(v => !v)}
               className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-white font-bold text-lg leading-none hover:bg-white/35 transition-colors"
@@ -77,7 +79,7 @@ export default function CategoryModal({ categories, selectedId, onSelect, onClos
                     value={newName}
                     onChange={e => setNewName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                    placeholder="Название категории"
+                    placeholder={t('categoryModal.namePlaceholder')}
                     className="flex-1 bg-white/20 text-white placeholder-white/60 rounded-xl px-4 py-2 text-sm"
                   />
                   <button
@@ -123,7 +125,7 @@ export default function CategoryModal({ categories, selectedId, onSelect, onClos
 
             {categories.length === 0 && (
               <p className="text-white/60 text-sm text-center py-4">
-                Нет категорий. Нажмите + чтобы добавить.
+                {t('categoryModal.empty')}
               </p>
             )}
           </div>

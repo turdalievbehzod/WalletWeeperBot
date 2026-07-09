@@ -1,22 +1,20 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { fmtAmount } from '../utils/format'
+import { useLanguage } from '../i18n/LanguageContext'
 
-const PERIODS = [
-  { key: 'this_week',  label: 'За эту неделю' },
-  { key: 'this_month', label: 'За этот месяц' },
-  { key: 'this_year',  label: 'За этот год' },
-]
+const PERIOD_KEYS = ['this_week', 'this_month', 'this_year']
 
 const CIRCLE_SIZE = 160   // px, active circle diameter
 const SIDE_SCALE  = 0.72  // side circles are 72% of active size
 
-export default function Carousel({ summary, onCurrencyTap }) {
+export default function Carousel({ summary, onCurrencyTap, onLanguageTap }) {
+  const { t, language } = useLanguage()
   const [activeIdx, setActiveIdx] = useState(1)   // start on "month"
   const [dragDir, setDragDir]     = useState(0)    // -1 left, +1 right
 
-  const total = summary?.[PERIODS[activeIdx].key] ?? 0
-  const currency = summary?.currency === 'UZS' ? 'сум' : summary?.currency ?? 'сум'
+  const total = summary?.[PERIOD_KEYS[activeIdx]] ?? 0
+  const currency = summary?.currency === 'UZS' ? t('carousel.uzsLabel') : summary?.currency ?? t('carousel.uzsLabel')
 
   const goTo = idx => {
     if (idx < 0 || idx > 2) return
@@ -33,7 +31,7 @@ export default function Carousel({ summary, onCurrencyTap }) {
     <div className="flex flex-col items-center py-6 select-none">
       {/* Title */}
       <h2 className="text-sm font-medium text-gray-500 mb-4 tracking-wide uppercase">
-        Общие расходы
+        {t('carousel.title')}
       </h2>
 
       {/* Circles track */}
@@ -45,7 +43,7 @@ export default function Carousel({ summary, onCurrencyTap }) {
         dragElastic={0.15}
         onDragEnd={handleDragEnd}
       >
-        {PERIODS.map((period, idx) => {
+        {PERIOD_KEYS.map((periodKey, idx) => {
           const offset = idx - activeIdx
           const isActive = offset === 0
           const scale = isActive ? 1 : SIDE_SCALE
@@ -54,7 +52,7 @@ export default function Carousel({ summary, onCurrencyTap }) {
 
           return (
             <motion.div
-              key={period.key}
+              key={periodKey}
               className="absolute flex flex-col items-center justify-center rounded-full cursor-pointer"
               style={{
                 width:  CIRCLE_SIZE,
@@ -73,7 +71,7 @@ export default function Carousel({ summary, onCurrencyTap }) {
               {isActive ? (
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={period.key}
+                    key={periodKey}
                     className="flex flex-col items-center text-white text-center px-3"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -81,23 +79,31 @@ export default function Carousel({ summary, onCurrencyTap }) {
                     transition={{ duration: 0.2 }}
                   >
                     <span className="text-xs font-medium opacity-90 leading-tight">
-                      {period.label}
+                      {t(`carousel.periods.${periodKey}`)}
                     </span>
                     <span className="text-2xl font-bold mt-1 leading-tight">
                       {fmtAmount(total)}
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); onCurrencyTap?.() }}
-                      className="mt-1.5 flex items-center gap-1 pl-2.5 pr-2 py-1 rounded-full bg-white/25 active:bg-white/40 text-white text-xs font-semibold leading-none"
-                    >
-                      <span>{currency}</span>
-                      <span className="text-[10px] opacity-90">⇄</span>
-                    </button>
+                    <div className="mt-1.5 flex items-center gap-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); onCurrencyTap?.() }}
+                        className="flex items-center gap-1 pl-2.5 pr-2 py-1 rounded-full bg-white/25 active:bg-white/40 text-white text-xs font-semibold leading-none"
+                      >
+                        <span>{currency}</span>
+                        <span className="text-[10px] opacity-90">⇄</span>
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); onLanguageTap?.() }}
+                        className="flex items-center justify-center w-6 h-6 rounded-full bg-white/25 active:bg-white/40 text-white text-xs leading-none"
+                      >
+                        {language === 'en' ? '🇬🇧' : '🇷🇺'}
+                      </button>
+                    </div>
                   </motion.div>
                 </AnimatePresence>
               ) : (
                 <span className="text-white text-xs font-medium text-center px-2 opacity-90 leading-tight">
-                  {period.label}
+                  {t(`carousel.periods.${periodKey}`)}
                 </span>
               )}
             </motion.div>
@@ -107,7 +113,7 @@ export default function Carousel({ summary, onCurrencyTap }) {
 
       {/* Dot indicators */}
       <div className="flex gap-2 mt-3">
-        {PERIODS.map((_, idx) => (
+        {PERIOD_KEYS.map((_, idx) => (
           <button
             key={idx}
             onClick={() => goTo(idx)}

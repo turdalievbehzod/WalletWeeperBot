@@ -18,6 +18,8 @@ from config import load_config
 from api.client import DjangoClient
 from handlers import start, expenses, settings
 from handlers.broadcast_server import create_broadcast_app
+from middlewares.language import LanguageMiddleware
+from services.language import LanguageResolver
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,11 +41,17 @@ async def main():
 
     # ── Django API client — один на всё приложение ─────────────────────────────
     django_client = DjangoClient(cfg)
+    language_resolver = LanguageResolver(cfg, django_client)
 
     # ── Middleware: пробрасываем зависимости в хэндлеры ───────────────────────
     # Используем workflow_data — данные, доступные в каждом хэндлере через аргументы
-    dp['django']      = django_client
-    dp['mini_app_url'] = cfg.mini_app_url
+    dp['django']            = django_client
+    dp['mini_app_url']      = cfg.mini_app_url
+    dp['language_resolver'] = language_resolver
+
+    # Резолвит язык пользователя для каждого входящего апдейта → data['lang']
+    dp.message.middleware(LanguageMiddleware(language_resolver))
+    dp.callback_query.middleware(LanguageMiddleware(language_resolver))
 
     # ── Регистрация роутеров ───────────────────────────────────────────────────
     dp.include_router(start.router)
@@ -65,6 +73,7 @@ async def main():
     finally:
         await runner.cleanup()
         await django_client.aclose()
+        await language_resolver.aclose()
         await bot.session.close()
 
 

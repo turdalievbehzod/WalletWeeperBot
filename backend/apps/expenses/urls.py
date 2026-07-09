@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BotBroadcastTargetsView,
     BotExpenseView,
+    BotLanguageView,
     BotNotificationView,
     BudgetSimulatorView,
     CalendarView,
@@ -27,6 +28,7 @@ urlpatterns = [
     # 'expenses/bot-notify/' is not swallowed by the router's expenses/<pk>/ pattern.
     path('expenses/bot-create/',            BotExpenseView.as_view(),            name='bot-expense'),
     path('expenses/bot-notify/',            BotNotificationView.as_view(),       name='bot-notify'),
+    path('expenses/bot-language/',          BotLanguageView.as_view(),           name='bot-language'),
     path('expenses/bot-broadcast-targets/', BotBroadcastTargetsView.as_view(),   name='bot-broadcast-targets'),
     # Standard CRUD router
     path('', include(router.urls)),

@@ -21,6 +21,8 @@ import HistorySection  from './components/HistorySection'
 import WeekDetails     from './components/WeekDetails'
 import MonthDetails    from './components/MonthDetails'
 import CurrencyModal   from './components/CurrencyModal'
+import LanguageModal   from './components/LanguageModal'
+import { useLanguage } from './i18n/LanguageContext'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -42,6 +44,8 @@ function SectionDivider() {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const { syncLanguage } = useLanguage()
+
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [authed,  setAuthed]  = useState(!!localStorage.getItem('access_token'))
   const [loading, setLoading] = useState(true)
@@ -57,6 +61,7 @@ export default function App() {
   const [catModalOpen,  setCatModalOpen]  = useState(false)
   const [tmplModalOpen, setTmplModalOpen] = useState(false)
   const [currModalOpen, setCurrModalOpen] = useState(false)
+  const [langModalOpen, setLangModalOpen] = useState(false)
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [amount,   setAmount]   = useState('')
@@ -71,10 +76,15 @@ export default function App() {
   const [categories,   setCategories]   = useState([])
   const [templates,    setTemplates]    = useState([])
 
+  const applyUser = useCallback((u) => {
+    setUser(u)
+    syncLanguage(u.language)
+  }, [syncLanguage])
+
   // ── Auth on mount ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (authed) {
-      getProfile().then(setUser).catch(err => console.error('[Profile] Failed:', err))
+      getProfile().then(applyUser).catch(err => console.error('[Profile] Failed:', err))
       loadAll()
     } else {
       authenticate()
@@ -98,7 +108,7 @@ export default function App() {
       const data = await authTelegram(initData, timezone)
       localStorage.setItem('access_token',  data.access)
       localStorage.setItem('refresh_token', data.refresh)
-      setUser(data.user)
+      applyUser(data.user)
       setAuthed(true)
       await loadAll()
     } catch (err) {
@@ -200,7 +210,11 @@ export default function App() {
       <div className="max-w-sm mx-auto pb-10">
 
         {/* Карусель сумм */}
-        <Carousel summary={summary} onCurrencyTap={() => setCurrModalOpen(true)} />
+        <Carousel
+          summary={summary}
+          onCurrencyTap={() => setCurrModalOpen(true)}
+          onLanguageTap={() => setLangModalOpen(true)}
+        />
 
         <SectionDivider />
 
@@ -261,9 +275,18 @@ export default function App() {
             currentCurrency={user.currency}
             onClose={() => setCurrModalOpen(false)}
             onChanged={updatedUser => {
-              setUser(updatedUser)
+              applyUser(updatedUser)
               loadAll()
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {langModalOpen && (
+          <LanguageModal
+            key="lang-modal"
+            onClose={() => setLangModalOpen(false)}
           />
         )}
       </AnimatePresence>

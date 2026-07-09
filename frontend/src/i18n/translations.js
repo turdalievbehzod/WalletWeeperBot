@@ -1,0 +1,143 @@
+export const translations = {
+  ru: {
+    carousel: {
+      title: 'Общие расходы',
+      periods: {
+        this_week:  'За эту неделю',
+        this_month: 'За этот месяц',
+        this_year:  'За этот год',
+      },
+      uzsLabel: 'сум',
+    },
+    currencyModal: {
+      title: 'Валюта',
+      description: 'При смене валюты все расходы будут пересчитаны по текущему курсу',
+      loadError: 'Не удалось загрузить курсы',
+      changeError: 'Ошибка при смене валюты',
+      rateLabel: '1 USD = {rate} {code}',
+      previewLabel: 'Например, 1 000 {currency} →',
+      applying: 'Применяется...',
+      close: 'Закрыть',
+      switchTo: 'Сменить на {code}',
+      names: {
+        UZS: 'Узбекский сум',
+        USD: 'Доллар США',
+        EUR: 'Евро',
+        RUB: 'Российский рубль',
+      },
+    },
+    languageModal: {
+      title: 'Язык',
+      description: 'Язык бота и мини-приложения',
+      close: 'Закрыть',
+      names: { ru: 'Русский', en: 'English' },
+    },
+    expenseForm: {
+      amountPlaceholder: 'Введите сумму',
+      category: 'Категория',
+      adding: 'Добавляем...',
+      add: 'Добавить',
+      chooseFromList: 'Выбрать из указанных',
+    },
+    categoryModal: {
+      title: 'Категории',
+      namePlaceholder: 'Название категории',
+      empty: 'Нет категорий. Нажмите + чтобы добавить.',
+    },
+    templateModal: {
+      title: 'Шаблоны',
+      itemPlaceholder: 'Введите товар',
+      pricePlaceholder: 'Цена',
+      empty: 'Нет шаблонов. Нажмите + чтобы создать.',
+      apply: 'Применить шаблон',
+    },
+    historySection: {
+      title: 'История расходов',
+      today: 'Сегодня',
+      lastWeek: 'За прошлую неделю',
+      lastMonth: 'За прошлый месяц',
+      total: 'Итого: {amount}',
+      empty: 'Нет записей',
+      more: 'Подробнее',
+    },
+    weekDetails: {
+      title: 'За прошлую неделю',
+      empty: 'Расходов за прошлую неделю нет',
+    },
+    monthDetails: {
+      title: 'За прошлый месяц',
+      empty: 'Расходов за прошлый месяц нет',
+    },
+  },
+
+  en: {
+    carousel: {
+      title: 'Total expenses',
+      periods: {
+        this_week:  'This week',
+        this_month: 'This month',
+        this_year:  'This year',
+      },
+      uzsLabel: 'UZS',
+    },
+    currencyModal: {
+      title: 'Currency',
+      description: 'Switching currency recalculates all expenses at the current rate',
+      loadError: 'Failed to load exchange rates',
+      changeError: 'Error changing currency',
+      rateLabel: '1 USD = {rate} {code}',
+      previewLabel: 'For example, 1,000 {currency} →',
+      applying: 'Applying...',
+      close: 'Close',
+      switchTo: 'Switch to {code}',
+      names: {
+        UZS: 'Uzbek Som',
+        USD: 'US Dollar',
+        EUR: 'Euro',
+        RUB: 'Russian Ruble',
+      },
+    },
+    languageModal: {
+      title: 'Language',
+      description: 'Bot and mini app language',
+      close: 'Close',
+      names: { ru: 'Русский', en: 'English' },
+    },
+    expenseForm: {
+      amountPlaceholder: 'Enter amount',
+      category: 'Category',
+      adding: 'Adding...',
+      add: 'Add',
+      chooseFromList: 'Choose from templates',
+    },
+    categoryModal: {
+      title: 'Categories',
+      namePlaceholder: 'Category name',
+      empty: 'No categories yet. Tap + to add one.',
+    },
+    templateModal: {
+      title: 'Templates',
+      itemPlaceholder: 'Enter item',
+      pricePlaceholder: 'Price',
+      empty: 'No templates yet. Tap + to create one.',
+      apply: 'Apply template',
+    },
+    historySection: {
+      title: 'Expense history',
+      today: 'Today',
+      lastWeek: 'Last week',
+      lastMonth: 'Last month',
+      total: 'Total: {amount}',
+      empty: 'No records',
+      more: 'Details',
+    },
+    weekDetails: {
+      title: 'Last week',
+      empty: 'No expenses last week',
+    },
+    monthDetails: {
+      title: 'Last month',
+      empty: 'No expenses last month',
+    },
+  },
+}

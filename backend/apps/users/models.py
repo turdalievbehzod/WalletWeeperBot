@@ -37,7 +37,13 @@ class UserProfile(AbstractBaseUser, PermissionsMixin):
         ('weekly', 'Раз в неделю'),
     ]
 
+    LANGUAGE_CHOICES = [
+        ('ru', 'Russian'),
+        ('en', 'English'),
+    ]
+
     currency    = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='UZS')
+    language    = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='ru')
     # IANA timezone string, e.g. "Asia/Tashkent" — sent by the frontend on first auth
     timezone    = models.CharField(max_length=64, default='UTC')
     notification_setting = models.CharField(

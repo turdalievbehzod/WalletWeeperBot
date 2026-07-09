@@ -9,7 +9,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model  = UserProfile
         fields = [
             'telegram_id', 'username', 'first_name', 'last_name',
-            'currency', 'timezone', 'notification_setting',
+            'currency', 'timezone', 'notification_setting', 'language',
         ]
         read_only_fields = ['telegram_id']
 
@@ -17,7 +17,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model  = UserProfile
-        fields = ['currency', 'timezone', 'notification_setting']
+        fields = ['currency', 'timezone', 'notification_setting', 'language']
 
     def validate_timezone(self, value: str) -> str:
         if value not in pytz.all_timezones_set:
@@ -37,5 +37,13 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         if value not in allowed:
             raise serializers.ValidationError(
                 f'Invalid setting. Choose from: {", ".join(sorted(allowed))}.'
+            )
+        return value
+
+    def validate_language(self, value: str) -> str:
+        allowed = {c[0] for c in UserProfile.LANGUAGE_CHOICES}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f'Unsupported language. Choose from: {", ".join(sorted(allowed))}.'
             )
         return value

@@ -61,7 +61,7 @@ class Transaction(models.Model):
         null=True, blank=True,
         related_name='transactions',
     )
-    amount      = models.DecimalField(max_digits=14, decimal_places=2)
+    amount      = models.DecimalField(max_digits=16, decimal_places=4)
     description = models.CharField(max_length=255, blank=True, null=True)
     created_at  = models.DateTimeField(default=timezone.now)
 
@@ -103,7 +103,7 @@ class QuickTemplate(models.Model):
         null=True, blank=True,
         related_name='quick_templates',
     )
-    amount        = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    amount        = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     template_type = models.CharField(max_length=8, choices=TYPE_CHOICES, default=FIXED)
     created_at    = models.DateTimeField(auto_now_add=True)
 

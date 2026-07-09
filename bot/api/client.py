@@ -69,6 +69,23 @@ class DjangoClient:
             json={'notification_setting': setting},
         )
 
+    # ── Language ──────────────────────────────────────────────────────────────
+
+    async def get_language(self, telegram_id: int) -> dict:
+        """GET /expenses/bot-language/ → {"language": "ru" | "en"}"""
+        return await self._request(
+            'GET', '/expenses/bot-language/',
+            headers=self._bot_headers(telegram_id),
+        )
+
+    async def set_language(self, telegram_id: int, language: str) -> dict:
+        """PATCH /expenses/bot-language/ — language: 'ru' | 'en'"""
+        return await self._request(
+            'PATCH', '/expenses/bot-language/',
+            headers=self._bot_headers(telegram_id),
+            json={'language': language},
+        )
+
     # ── Broadcast targets (called by scheduler, not by bot) ───────────────────
 
     async def get_broadcast_targets(self, mode: str) -> list[int]:
