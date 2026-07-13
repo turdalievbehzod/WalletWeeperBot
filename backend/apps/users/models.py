@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
@@ -69,3 +70,31 @@ class UserProfile(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return f'@{self.username}' if self.username else f'tg:{self.telegram_id}'
+
+class Note(models.Model):
+    REPEAT_CHOICES = [
+        ('once',    'Один раз'),
+        ('daily',  'Каждый вечер'),
+        ('weekly', 'Раз в неделю'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notes'
+    )
+
+    text = models.TextField()
+    repeat = models.CharField(max_length=6, choices=REPEAT_CHOICES, default='once')
+    remind_at = models.DateTimeField()
+    is_sent = models.BooleanField(default=False)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'note'
+        ordering = ['remind_at']
+
+    def __str__(self) -> str:
+        return self.text[:50]
+    

@@ -8,4 +8,5 @@ urlpatterns = [
     path('auth/refresh/',   TokenRefreshView.as_view(),   name='token-refresh'),
     path('auth/me/',        UserProfileView.as_view(),    name='user-profile'),
     path('exchange-rates/', ExchangeRatesView.as_view(),  name='exchange-rates'),
+    path('note/', NoteView.as_view(),  name='user-note')
 ]

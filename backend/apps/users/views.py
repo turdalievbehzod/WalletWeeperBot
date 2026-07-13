@@ -6,7 +6,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import ExpressionWrapper, F
 from django.db.models.fields import DecimalField
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,7 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.authentication import validate_telegram_init_data
 from .models import UserProfile
-from .serializers import UserProfileSerializer, UserProfileUpdateSerializer
+from .serializers import UserProfileSerializer, UserProfileUpdateSerializer, NoteSerializer
 
 
 def _get_fx_rates() -> dict:
@@ -158,3 +158,11 @@ class UserProfileView(APIView):
 
         serializer.save()
         return Response(UserProfileSerializer(request.user).data)
+
+class NoteView(viewsets.ModelViewSet):
+    serializer_class   = NoteSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return self.request.user
+    

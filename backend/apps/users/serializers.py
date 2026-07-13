@@ -1,7 +1,8 @@
 import pytz
 from rest_framework import serializers
+from django.utils import timezone
 
-from .models import UserProfile
+from .models import UserProfile, Note
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -46,4 +47,17 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f'Unsupported language. Choose from: {", ".join(sorted(allowed))}.'
             )
+        return value
+
+class NoteSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True, default=None)
+
+    class Meta:
+        model = Note
+        fields = ['id', 'text', 'remind_at', 'repeat', 'is_sent']
+        read_only_fields = ['id', 'is_sent']
+
+    def validate(self, value):
+        if value <= timezone.now():
+            raise serializers.ValidationError('remind_at must be in the future.')
         return value
