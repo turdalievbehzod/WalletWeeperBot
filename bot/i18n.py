@@ -66,19 +66,23 @@ STRINGS: dict[str, dict[str, str]] = {
     'language_error': {'ru': 'Ошибка (код {code}). Попробуйте позже.', 'en': 'Error (code {code}). Please try again later.'},
 
     'note_usage': {
-        'ru': (
-            '📝 Формат: <code>/note once|daily|weekly ДД.ММ.ГГГГ ЧЧ:ММ текст</code>\n'
-            'Например: <code>/note once 20.07.2026 18:00 Забрать посылку</code>'
-        ),
-        'en': (
-            '📝 Format: <code>/note once|daily|weekly DD.MM.YYYY HH:MM text</code>\n'
-            'Example: <code>/note once 20.07.2026 18:00 Pick up the package</code>'
-        ),
+        'ru': '📝 Формат: <code>/note текст</code>\nНапример: <code>/note Забрать посылку</code>',
+        'en': '📝 Format: <code>/note text</code>\nExample: <code>/note Pick up the package</code>',
     },
-    'note_invalid_date': {
-        'ru': '❌ Неверная дата или время.',
-        'en': '❌ Invalid date or time.',
+    'note_pick_time': {
+        'ru': '🕐 Когда напомнить?\n«{text}»',
+        'en': '🕐 When should I remind you?\n"{text}"',
     },
+    'note_expired': {
+        'ru': '⌛ Черновик напоминания устарел, попробуй /note ещё раз.',
+        'en': "⌛ This reminder draft expired, please try /note again.",
+    },
+    'note_saved': {'ru': '✅ Напоминание сохранено', 'en': '✅ Reminder saved'},
+    'note_time_1h':       {'ru': '⏰ Через час', 'en': '⏰ In an hour'},
+    'note_time_tonight':  {'ru': '🌙 Сегодня вечером (20:00)', 'en': '🌙 Tonight (20:00)'},
+    'note_time_tomorrow': {'ru': '🌅 Завтра утром (09:00)', 'en': '🌅 Tomorrow morning (09:00)'},
+    'note_time_daily':    {'ru': '🔁 Каждый день (с завтра, 09:00)', 'en': '🔁 Every day (from tomorrow, 09:00)'},
+    'note_time_weekly':   {'ru': '📅 Раз в неделю (с сегодня, через 7 дней)', 'en': '📅 Once a week (starting in 7 days)'},
     'note_create_error': {
         'ru': '❌ Не удалось создать напоминание: {detail}',
         'en': '❌ Failed to create the reminder: {detail}',

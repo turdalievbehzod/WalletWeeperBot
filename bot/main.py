@@ -21,6 +21,7 @@ from handlers.broadcast_server import create_broadcast_app
 from i18n import t
 from middlewares.language import LanguageMiddleware
 from services.language import LanguageResolver
+from services.pending_note import PendingNoteStore
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,12 +75,14 @@ async def main():
     # ── Django API client — один на всё приложение ─────────────────────────────
     django_client = DjangoClient(cfg)
     language_resolver = LanguageResolver(cfg, django_client)
+    pending_notes = PendingNoteStore(cfg)
 
     # ── Middleware: пробрасываем зависимости в хэндлеры ───────────────────────
     # Используем workflow_data — данные, доступные в каждом хэндлере через аргументы
     dp['django']            = django_client
     dp['mini_app_url']      = cfg.mini_app_url
     dp['language_resolver'] = language_resolver
+    dp['pending_notes']     = pending_notes
 
     # Резолвит язык пользователя для каждого входящего апдейта → data['lang']
     dp.message.middleware(LanguageMiddleware(language_resolver))
@@ -111,6 +114,7 @@ async def main():
         await runner.cleanup()
         await django_client.aclose()
         await language_resolver.aclose()
+        await pending_notes.aclose()
         await bot.session.close()
 
 

@@ -93,17 +93,17 @@ class DjangoClient:
 
     # ── Notes / reminders ────────────────────────────────────────────────────
 
-    async def create_note(self, telegram_id: int, text: str, remind_at: str, repeat: str) -> dict:
+    async def create_note(self, telegram_id: int, text: str, preset: str) -> dict:
         """
         POST /bot/notes/
-        remind_at: naive ISO datetime ('2026-07-20T18:00:00'), in the user's
-        own timezone — the backend localizes it server-side via user.timezone.
-        repeat: 'once' | 'daily' | 'weekly'
+        preset: '1h' | 'tonight' | 'tomorrow' | 'daily' | 'weekly' — the
+        backend resolves this to an actual remind_at in the user's own
+        timezone (user.timezone), since the bot doesn't know it.
         """
         return await self._request(
             'POST', '/bot/notes/',
             headers=self._bot_headers(telegram_id),
-            json={'text': text, 'remind_at': remind_at, 'repeat': repeat},
+            json={'text': text, 'preset': preset},
         )
 
     async def list_notes(self, telegram_id: int) -> list[dict]:

@@ -1,13 +1,16 @@
 """
 Заметки-напоминания.
 
-Создание: /note once|daily|weekly ДД.ММ.ГГГГ ЧЧ:ММ текст
-  Например: /note once 20.07.2026 18:00 Забрать посылку
-            /note daily 15.07.2026 09:00 Проверить расходы
+Создание — двухшаговый флоу без FSM:
+  1. /note <текст>              — бот сохраняет текст в Redis (PendingNoteStore)
+                                   и показывает кнопки с готовым временем.
+  2. Нажатие кнопки note_when:* — читает текст, шлёт (текст, пресет) на бэкенд;
+                                   бэкенд сам считает remind_at в часовом поясе
+                                   пользователя (бот его не знает) и создаёт
+                                   напоминание.
 
-Список:   /notes — активные напоминания с кнопкой удаления на каждом.
+Список: /notes — активные напоминания с кнопкой удаления на каждом.
 """
-import re
 from datetime import datetime
 
 from aiogram import F, Router
@@ -17,13 +20,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from api.client import DjangoAPIError, DjangoClient
 from i18n import t
+from keyboards.inline import note_time_keyboard
+from services.pending_note import PendingNoteStore
 
 router = Router(name='notes')
-
-_CREATE_PATTERN = re.compile(
-    r'^(once|daily|weekly)\s+(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})\s+(.+)$',
-    re.IGNORECASE | re.DOTALL,
-)
 
 
 def _repeat_label(repeat: str, lang: str) -> str:
@@ -38,39 +38,58 @@ def _fmt_when(iso_string: str) -> str:
 
 
 @router.message(Command('note'))
-async def cmd_note_create(message: Message, django: DjangoClient, lang: str):
+async def cmd_note_create(message: Message, pending_notes: PendingNoteStore, lang: str):
     args = message.text.split(maxsplit=1)
-    match = _CREATE_PATTERN.match(args[1].strip()) if len(args) > 1 else None
-    if not match:
+    text = args[1].strip() if len(args) > 1 else ''
+    if not text:
         await message.reply(t('note_usage', lang), parse_mode='HTML')
         return
 
-    repeat, day, month, year, hour, minute, text = match.groups()
-    repeat = repeat.lower()
-    try:
-        remind_at = datetime(int(year), int(month), int(day), int(hour), int(minute))
-    except ValueError:
-        await message.reply(t('note_invalid_date', lang))
+    await pending_notes.set(message.from_user.id, text)
+    await message.reply(
+        t('note_pick_time', lang, text=text),
+        parse_mode='HTML',
+        reply_markup=note_time_keyboard(lang),
+    )
+
+
+@router.callback_query(F.data.startswith('note_when:'))
+async def on_note_time_picked(
+    call: CallbackQuery,
+    django: DjangoClient,
+    pending_notes: PendingNoteStore,
+    lang: str,
+):
+    preset = call.data.split(':', 1)[1]
+    telegram_id = call.from_user.id
+
+    text = await pending_notes.pop(telegram_id)
+    if not text:
+        await call.answer(t('note_expired', lang), show_alert=True)
         return
 
     try:
-        await django.create_note(message.from_user.id, text.strip(), remind_at.isoformat(), repeat)
+        note = await django.create_note(telegram_id, text, preset)
     except DjangoAPIError as e:
         if e.status_code == 404:
-            await message.reply(t('not_registered', lang))
+            await call.answer(t('not_registered', lang), show_alert=True)
         else:
-            await message.reply(t('note_create_error', lang, detail=e.detail))
+            await call.answer(t('note_create_error', lang, detail=e.detail), show_alert=True)
         return
 
-    await message.reply(
-        t(
-            'note_created', lang,
-            text=text.strip(),
-            when=remind_at.strftime('%d.%m.%Y %H:%M'),
-            repeat=_repeat_label(repeat, lang),
-        ),
-        parse_mode='HTML',
-    )
+    await call.answer(t('note_saved', lang))
+    try:
+        await call.message.edit_text(
+            t(
+                'note_created', lang,
+                text=note['text'],
+                when=_fmt_when(note['remind_at']),
+                repeat=_repeat_label(note['repeat'], lang),
+            ),
+            parse_mode='HTML',
+        )
+    except Exception:
+        pass  # сообщение уже могло быть удалено/устарело — молча игнорируем
 
 
 @router.message(Command('notes'))

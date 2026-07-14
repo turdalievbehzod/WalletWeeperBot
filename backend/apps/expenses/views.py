@@ -597,16 +597,45 @@ class BotLanguageView(APIView):
         return Response({'language': language})
 
 
+_NOTE_PRESETS = {'1h', 'tonight', 'tomorrow', 'daily', 'weekly'}
+
+
+def _resolve_note_preset(preset: str, now: datetime):
+    """
+    now must be a NAIVE datetime already expressed in the user's own local
+    time (i.e. tzinfo stripped after converting from UTC via _user_tz) —
+    all arithmetic happens in naive local time and gets localized exactly
+    once at the end, which is the correct pytz pattern (avoids the DST
+    double-adjustment trap of calling .replace() on an aware pytz datetime).
+    """
+    if preset == '1h':
+        return now + timedelta(hours=1), 'once'
+    if preset == 'tonight':
+        remind_at = now.replace(hour=20, minute=0, second=0, microsecond=0)
+        if remind_at <= now:
+            remind_at += timedelta(days=1)
+        return remind_at, 'once'
+    if preset == 'tomorrow':
+        return (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0), 'once'
+    if preset == 'daily':
+        return (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0), 'daily'
+    if preset == 'weekly':
+        return (now + timedelta(weeks=1)).replace(second=0, microsecond=0), 'weekly'
+    return None
+
+
 class BotNoteCreateView(APIView):
     """
     POST /api/v1/bot/notes/
     Headers: X-Bot-Secret, X-Telegram-Id
-    Body:    { "text": "...", "remind_at": "2026-07-20T18:00:00", "repeat": "once"|"daily"|"weekly" }
+    Body: EITHER
+      { "text": "...", "preset": "1h"|"tonight"|"tomorrow"|"daily"|"weekly" }
+      { "text": "...", "remind_at": "2026-07-20T18:00:00", "repeat": "once"|"daily"|"weekly" }
 
-    remind_at is a NAIVE datetime (no offset) in the user's own local time —
-    the bot only knows wall-clock time from the user's message, not their
-    timezone, so localization happens here via user.timezone (same _user_tz
-    helper used by the dashboard/calendar views) instead of in the bot.
+    remind_at (when given directly) is a NAIVE datetime (no offset) in the
+    user's own local time. presets are resolved the same way, server-side,
+    via user.timezone (_user_tz) — the bot never computes wall-clock times
+    itself, since it only knows its own process clock, not the user's tz.
     """
     permission_classes = [AllowAny]
 
@@ -616,14 +645,28 @@ class BotNoteCreateView(APIView):
             return err
 
         data = request.data.copy()
-        try:
-            naive = datetime.fromisoformat(data.get('remind_at', ''))
-            data['remind_at'] = _user_tz(user).localize(naive).isoformat()
-        except (TypeError, ValueError):
-            return Response(
-                {'detail': 'remind_at must be an ISO datetime, e.g. "2026-07-20T18:00:00".'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user_tz = _user_tz(user)
+        preset = data.pop('preset', None)
+
+        if preset is not None:
+            if preset not in _NOTE_PRESETS:
+                return Response(
+                    {'detail': f'Unknown preset "{preset}". Use one of: {", ".join(sorted(_NOTE_PRESETS))}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            now_local = timezone.now().astimezone(user_tz).replace(tzinfo=None)
+            remind_at, repeat = _resolve_note_preset(preset, now_local)
+            data['remind_at'] = user_tz.localize(remind_at).isoformat()
+            data['repeat'] = repeat
+        else:
+            try:
+                naive = datetime.fromisoformat(data.get('remind_at', ''))
+                data['remind_at'] = user_tz.localize(naive).isoformat()
+            except (TypeError, ValueError):
+                return Response(
+                    {'detail': 'remind_at must be an ISO datetime, e.g. "2026-07-20T18:00:00".'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         serializer = NoteSerializer(data=data)
         serializer.is_valid(raise_exception=True)

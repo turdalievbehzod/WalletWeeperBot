@@ -51,3 +51,15 @@ def settings_keyboard(current_notify: str, current_lang: str, lang: str) -> Inli
     )
     builder.adjust(1)
     return builder.as_markup()
+
+
+def note_time_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Preset reminder times shown after /note <text> — no manual date typing needed."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text=t('note_time_1h', lang),       callback_data='note_when:1h')
+    builder.button(text=t('note_time_tonight', lang),   callback_data='note_when:tonight')
+    builder.button(text=t('note_time_tomorrow', lang),  callback_data='note_when:tomorrow')
+    builder.button(text=t('note_time_daily', lang),     callback_data='note_when:daily')
+    builder.button(text=t('note_time_weekly', lang),    callback_data='note_when:weekly')
+    builder.adjust(1)
+    return builder.as_markup()
