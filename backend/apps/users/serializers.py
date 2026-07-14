@@ -50,14 +50,12 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         return value
 
 class NoteSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True, default=None)
-
     class Meta:
         model = Note
         fields = ['id', 'text', 'remind_at', 'repeat', 'is_sent']
         read_only_fields = ['id', 'is_sent']
 
-    def validate(self, value):
+    def validate_remind_at(self, value):
         if value <= timezone.now():
             raise serializers.ValidationError('remind_at must be in the future.')
         return value

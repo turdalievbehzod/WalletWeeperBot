@@ -6,13 +6,15 @@ from dateutil.relativedelta import relativedelta
 from django.conf import settings as django_settings
 from django.db.models import Q, Sum
 from django.db.models.functions import TruncDay
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.users.models import UserProfile
+from apps.users.models import UserProfile, Note
+from apps.users.serializers import NoteSerializer
 from .models import Category, QuickTemplate, Transaction
 from .serializers import (
     CategorySerializer,
@@ -593,6 +595,121 @@ class BotLanguageView(APIView):
         user.language = language
         user.save(update_fields=['language'])
         return Response({'language': language})
+
+
+class BotNoteCreateView(APIView):
+    """
+    POST /api/v1/bot/notes/
+    Headers: X-Bot-Secret, X-Telegram-Id
+    Body:    { "text": "...", "remind_at": "2026-07-20T18:00:00", "repeat": "once"|"daily"|"weekly" }
+
+    remind_at is a NAIVE datetime (no offset) in the user's own local time —
+    the bot only knows wall-clock time from the user's message, not their
+    timezone, so localization happens here via user.timezone (same _user_tz
+    helper used by the dashboard/calendar views) instead of in the bot.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+
+        data = request.data.copy()
+        try:
+            naive = datetime.fromisoformat(data.get('remind_at', ''))
+            data['remind_at'] = _user_tz(user).localize(naive).isoformat()
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'remind_at must be an ISO datetime, e.g. "2026-07-20T18:00:00".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = NoteSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        note = serializer.save(user=user)
+        return Response(NoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+
+class BotNoteListView(APIView):
+    """GET /api/v1/bot/notes/list/ — upcoming (unsent) reminders for this user, soonest first."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+
+        notes = Note.objects.filter(user=user, is_sent=False).order_by('remind_at')
+        return Response(NoteSerializer(notes, many=True).data)
+
+
+class BotNoteDeleteView(APIView):
+    """DELETE /api/v1/bot/notes/<note_id>/  Headers: X-Bot-Secret, X-Telegram-Id"""
+    permission_classes = [AllowAny]
+
+    def delete(self, request, note_id):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+
+        deleted, _ = Note.objects.filter(id=note_id, user=user).delete()
+        if not deleted:
+            return Response({'detail': 'Note not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BotDueNotesView(APIView):
+    """
+    GET /api/v1/bot/notes/due/
+    Header: X-Bot-Secret (no X-Telegram-Id — spans all users)
+
+    Returns reminders whose remind_at has passed and that haven't fired yet.
+    Polled periodically by the bot's reminder loop.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        secret = request.headers.get('X-Bot-Secret', '')
+        if secret != getattr(django_settings, 'BOT_SECRET', ''):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        due = Note.objects.filter(remind_at__lte=timezone.now(), is_sent=False)
+        return Response([
+            {'id': n.id, 'telegram_id': n.user_id, 'text': n.text, 'repeat': n.repeat}
+            for n in due
+        ])
+
+
+class BotNoteMarkSentView(APIView):
+    """
+    PATCH /api/v1/bot/notes/<note_id>/sent/
+    Header: X-Bot-Secret
+
+    Called by the bot right after successfully delivering a due reminder.
+    'once' notes are marked sent; 'daily'/'weekly' notes advance to their
+    next occurrence instead, so the same row keeps firing on schedule.
+    """
+    permission_classes = [AllowAny]
+
+    def patch(self, request, note_id):
+        secret = request.headers.get('X-Bot-Secret', '')
+        if secret != getattr(django_settings, 'BOT_SECRET', ''):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            note = Note.objects.get(id=note_id)
+        except Note.DoesNotExist:
+            return Response({'detail': 'Note not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if note.repeat == 'once':
+            note.is_sent = True
+        elif note.repeat == 'daily':
+            note.remind_at += timedelta(days=1)
+        elif note.repeat == 'weekly':
+            note.remind_at += timedelta(weeks=1)
+        note.save(update_fields=['is_sent', 'remind_at'])
+        return Response({'id': note.id, 'is_sent': note.is_sent, 'remind_at': note.remind_at})
 
 
 class BotBroadcastTargetsView(APIView):

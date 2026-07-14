@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.authentication import validate_telegram_init_data
-from .models import UserProfile
+from .models import UserProfile, Note
 from .serializers import UserProfileSerializer, UserProfileUpdateSerializer, NoteSerializer
 
 
@@ -159,10 +159,20 @@ class UserProfileView(APIView):
         serializer.save()
         return Response(UserProfileSerializer(request.user).data)
 
-class NoteView(viewsets.ModelViewSet):
+class NoteViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/notes/       GET (list) / POST (create)
+    /api/v1/notes/<id>/  GET / PATCH / DELETE
+
+    Reminders are scoped to the authenticated user; `user` is never taken
+    from the request body — it's stamped from the JWT on create, exactly
+    like every other user-owned model in this project.
+    """
     serializer_class   = NoteSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        return self.request.user
-    
+        return Note.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

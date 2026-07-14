@@ -42,6 +42,11 @@ class DjangoClient:
             except Exception:
                 detail = resp.text
             raise DjangoAPIError(resp.status_code, detail)
+        # DELETE and some PATCH responses come back 204/empty — .json() would
+        # raise on an empty body, so short-circuit rather than special-case
+        # every call site.
+        if not resp.content:
+            return None
         return resp.json()
 
     # ── Expenses ──────────────────────────────────────────────────────────────
@@ -84,6 +89,49 @@ class DjangoClient:
             'PATCH', '/expenses/bot-language/',
             headers=self._bot_headers(telegram_id),
             json={'language': language},
+        )
+
+    # ── Notes / reminders ────────────────────────────────────────────────────
+
+    async def create_note(self, telegram_id: int, text: str, remind_at: str, repeat: str) -> dict:
+        """
+        POST /bot/notes/
+        remind_at: naive ISO datetime ('2026-07-20T18:00:00'), in the user's
+        own timezone — the backend localizes it server-side via user.timezone.
+        repeat: 'once' | 'daily' | 'weekly'
+        """
+        return await self._request(
+            'POST', '/bot/notes/',
+            headers=self._bot_headers(telegram_id),
+            json={'text': text, 'remind_at': remind_at, 'repeat': repeat},
+        )
+
+    async def list_notes(self, telegram_id: int) -> list[dict]:
+        """GET /bot/notes/list/ — this user's upcoming (unsent) reminders, soonest first."""
+        return await self._request(
+            'GET', '/bot/notes/list/',
+            headers=self._bot_headers(telegram_id),
+        )
+
+    async def delete_note(self, telegram_id: int, note_id: int) -> None:
+        """DELETE /bot/notes/<note_id>/"""
+        await self._request(
+            'DELETE', f'/bot/notes/{note_id}/',
+            headers=self._bot_headers(telegram_id),
+        )
+
+    async def get_due_notes(self) -> list[dict]:
+        """GET /bot/notes/due/ — reminders across all users whose time has come. Polled by the bot."""
+        return await self._request(
+            'GET', '/bot/notes/due/',
+            headers=self._bot_headers(),
+        )
+
+    async def mark_note_sent(self, note_id: int) -> dict:
+        """PATCH /bot/notes/<note_id>/sent/ — call right after delivering a due reminder."""
+        return await self._request(
+            'PATCH', f'/bot/notes/{note_id}/sent/',
+            headers=self._bot_headers(),
         )
 
     # ── Broadcast targets (called by scheduler, not by bot) ───────────────────

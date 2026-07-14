@@ -13,7 +13,9 @@ STRINGS: dict[str, dict[str, str]] = {
             '<code>25000 обед</code>\n'
             '<code>3500 такси</code>\n\n'
             '⚙️ Команды:\n'
-            '/settings — настройка уведомлений и языка'
+            '/settings — настройка уведомлений и языка\n'
+            '/note — создать напоминание\n'
+            '/notes — список напоминаний'
         ),
         'en': (
             'Hi, {name}! 👋\n\n'
@@ -23,7 +25,9 @@ STRINGS: dict[str, dict[str, str]] = {
             '<code>25000 lunch</code>\n'
             '<code>3500 taxi</code>\n\n'
             '⚙️ Commands:\n'
-            '/settings — notification and language settings'
+            '/settings — notification and language settings\n'
+            '/note — create a reminder\n'
+            '/notes — list your reminders'
         ),
     },
     'open_app_button': {'ru': '📊 Открыть приложение', 'en': '📊 Open app'},
@@ -60,6 +64,55 @@ STRINGS: dict[str, dict[str, str]] = {
     'language_en': {'ru': '🇬🇧 English', 'en': '🇬🇧 English'},
     'language_saved': {'ru': '✅ Язык переключён на русский', 'en': '✅ Language switched to English'},
     'language_error': {'ru': 'Ошибка (код {code}). Попробуйте позже.', 'en': 'Error (code {code}). Please try again later.'},
+
+    'note_usage': {
+        'ru': (
+            '📝 Формат: <code>/note once|daily|weekly ДД.ММ.ГГГГ ЧЧ:ММ текст</code>\n'
+            'Например: <code>/note once 20.07.2026 18:00 Забрать посылку</code>'
+        ),
+        'en': (
+            '📝 Format: <code>/note once|daily|weekly DD.MM.YYYY HH:MM text</code>\n'
+            'Example: <code>/note once 20.07.2026 18:00 Pick up the package</code>'
+        ),
+    },
+    'note_invalid_date': {
+        'ru': '❌ Неверная дата или время.',
+        'en': '❌ Invalid date or time.',
+    },
+    'note_create_error': {
+        'ru': '❌ Не удалось создать напоминание: {detail}',
+        'en': '❌ Failed to create the reminder: {detail}',
+    },
+    'note_created': {
+        'ru': '✅ Напоминание создано ({repeat}, {when}):\n«{text}»',
+        'en': '✅ Reminder created ({repeat}, {when}):\n"{text}"',
+    },
+    'note_list_error': {
+        'ru': '❌ Не удалось получить список напоминаний: {detail}',
+        'en': '❌ Failed to fetch reminders: {detail}',
+    },
+    'note_list_empty': {
+        'ru': '📭 У тебя пока нет активных напоминаний. Создать: /note',
+        'en': '📭 You have no active reminders yet. Create one: /note',
+    },
+    'note_list_item': {
+        'ru': '🔔 {when} ({repeat})\n«{text}»',
+        'en': '🔔 {when} ({repeat})\n"{text}"',
+    },
+    'note_delete_button': {'ru': '🗑 Удалить', 'en': '🗑 Delete'},
+    'note_deleted': {'ru': '✅ Напоминание удалено', 'en': '✅ Reminder deleted'},
+    'note_delete_error': {
+        'ru': '❌ Не удалось удалить: {detail}',
+        'en': '❌ Failed to delete: {detail}',
+    },
+    'note_reminder': {
+        'ru': '🔔 <b>Напоминание:</b> {text}',
+        'en': '🔔 <b>Reminder:</b> {text}',
+    },
+
+    'repeat_once':   {'ru': 'разово', 'en': 'once'},
+    'repeat_daily':  {'ru': 'ежедневно', 'en': 'daily'},
+    'repeat_weekly': {'ru': 'еженедельно', 'en': 'weekly'},
 }
 
 

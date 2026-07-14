@@ -151,6 +151,37 @@ SIMPLE_JWT = {
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
 # Shared secret for bot ↔ backend internal API calls (no JWT needed)
 BOT_SECRET = env('BOT_SECRET', default='change-me-in-production')
+# Channel that receives ERROR+ logs (unhandled view exceptions) — blank disables it.
+LOG_TELEGRAM_CHAT_ID = env('LOG_TELEGRAM_CHAT_ID', default='')
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Logging — unhandled exceptions (django.request, ERROR+) are also reported
+# to LOG_TELEGRAM_CHAT_ID so a 500 doesn't go unnoticed between deploys.
+# ──────────────────────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'telegram': {
+            'class': 'core.telegram_log_handler.TelegramErrorHandler',
+            'level': 'ERROR',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console', 'telegram'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CORS — Telegram Mini Apps are served from t.me / telegram domains
