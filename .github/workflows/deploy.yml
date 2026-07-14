@@ -37,6 +37,9 @@ jobs:
             echo "==> Restarting Django..."
             docker compose up -d web
 
+            echo "==> Running database migrations..."
+            docker compose exec -T web python manage.py migrate --noinput
+
             echo "==> Restarting bot..."
             if [ -f /root/bot.pid ]; then
               kill $(cat /root/bot.pid) 2>/dev/null || true
