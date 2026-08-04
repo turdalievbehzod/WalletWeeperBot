@@ -53,13 +53,37 @@ def settings_keyboard(current_notify: str, current_lang: str, lang: str) -> Inli
     return builder.as_markup()
 
 
-def note_time_keyboard(lang: str) -> InlineKeyboardMarkup:
-    """Preset reminder times shown after /note <text> — no manual date typing needed."""
+def note_mode_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Shown right after /note <text> — one-time vs recurring."""
     builder = InlineKeyboardBuilder()
-    builder.button(text=t('note_time_1h', lang),       callback_data='note_when:1h')
-    builder.button(text=t('note_time_tonight', lang),   callback_data='note_when:tonight')
-    builder.button(text=t('note_time_tomorrow', lang),  callback_data='note_when:tomorrow')
-    builder.button(text=t('note_time_daily', lang),     callback_data='note_when:daily')
-    builder.button(text=t('note_time_weekly', lang),    callback_data='note_when:weekly')
+    builder.button(text=t('note_mode_once', lang),  callback_data='note_mode:once')
+    builder.button(text=t('note_mode_daily', lang), callback_data='note_mode:daily')
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def note_once_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Shown after picking 'Одноразово' — quick default vs manual date/time."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text=t('note_once_1h', lang),     callback_data='note_once:1h')
+    builder.button(text=t('note_once_custom', lang), callback_data='note_once:custom')
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def note_daily_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Shown after picking 'Регулярно' — quick default vs manual time."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text=t('note_daily_now', lang),    callback_data='note_daily:now')
+    builder.button(text=t('note_daily_custom', lang), callback_data='note_daily:custom')
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def broadcast_confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Shown after the admin types the announcement text, before it actually goes out."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text=t('broadcast_send_button', lang),   callback_data='broadcast_confirm')
+    builder.button(text=t('broadcast_cancel_button', lang), callback_data='broadcast_cancel')
+    builder.adjust(2)
     return builder.as_markup()

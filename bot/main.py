@@ -16,11 +16,12 @@ from aiogram.fsm.storage.redis import RedisStorage
 
 from config import load_config
 from api.client import DjangoAPIError, DjangoClient
-from handlers import start, expenses, settings, notes
+from handlers import start, admin, expenses, settings, notes
 from handlers.broadcast_server import create_broadcast_app
 from i18n import t
 from middlewares.language import LanguageMiddleware
 from services.language import LanguageResolver
+from services.pending_broadcast import PendingBroadcastStore
 from services.pending_note import PendingNoteStore
 
 logging.basicConfig(
@@ -76,6 +77,7 @@ async def main():
     django_client = DjangoClient(cfg)
     language_resolver = LanguageResolver(cfg, django_client)
     pending_notes = PendingNoteStore(cfg)
+    pending_broadcast = PendingBroadcastStore(cfg)
 
     # ── Middleware: пробрасываем зависимости в хэндлеры ───────────────────────
     # Используем workflow_data — данные, доступные в каждом хэндлере через аргументы
@@ -83,16 +85,22 @@ async def main():
     dp['mini_app_url']      = cfg.mini_app_url
     dp['language_resolver'] = language_resolver
     dp['pending_notes']     = pending_notes
+    dp['pending_broadcast'] = pending_broadcast
+    dp['admin_ids']         = cfg.admin_ids
 
     # Резолвит язык пользователя для каждого входящего апдейта → data['lang']
     dp.message.middleware(LanguageMiddleware(language_resolver))
     dp.callback_query.middleware(LanguageMiddleware(language_resolver))
 
     # ── Регистрация роутеров ───────────────────────────────────────────────────
+    # admin/notes идут раньше expenses: у обоих есть хэндлеры на свободный текст
+    # (ожидание даты/времени, текст рассылки), которые не должны потеряться,
+    # если тот же текст случайно похож на "сумма расхода".
     dp.include_router(start.router)
+    dp.include_router(admin.router)
+    dp.include_router(notes.router)
     dp.include_router(expenses.router)
     dp.include_router(settings.router)
-    dp.include_router(notes.router)
 
     # ── Фоновая доставка напоминаний ────────────────────────────────────────────
     reminder_task = asyncio.create_task(_note_reminder_loop(bot, django_client, language_resolver))
@@ -115,6 +123,7 @@ async def main():
         await django_client.aclose()
         await language_resolver.aclose()
         await pending_notes.aclose()
+        await pending_broadcast.aclose()
         await bot.session.close()
 
 

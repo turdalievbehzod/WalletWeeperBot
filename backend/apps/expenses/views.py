@@ -9,6 +9,7 @@ from django.db.models.functions import TruncDay
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -537,13 +538,20 @@ class BotExpenseView(APIView):
 
 class BotNotificationView(APIView):
     """
+    GET   /api/v1/expenses/bot-notify/  → { "notification_setting": "off" | "daily" | "weekly" }
     PATCH /api/v1/expenses/bot-notify/
     Headers: X-Bot-Secret, X-Telegram-Id
     Body:    { "notification_setting": "daily" | "weekly" | "off" }
 
-    Updates the notification preference for the identified user.
+    Reads/updates the notification preference for the identified user.
     """
     permission_classes = [AllowAny]
+
+    def get(self, request):
+        user, err = _bot_auth(request)
+        if err:
+            return err
+        return Response({'notification_setting': user.notification_setting})
 
     def patch(self, request):
         user, err = _bot_auth(request)
@@ -597,7 +605,7 @@ class BotLanguageView(APIView):
         return Response({'language': language})
 
 
-_NOTE_PRESETS = {'1h', 'tonight', 'tomorrow', 'daily', 'weekly'}
+_NOTE_PRESETS = {'once_1h', 'daily_now'}
 
 
 def _resolve_note_preset(preset: str, now: datetime):
@@ -608,19 +616,10 @@ def _resolve_note_preset(preset: str, now: datetime):
     once at the end, which is the correct pytz pattern (avoids the DST
     double-adjustment trap of calling .replace() on an aware pytz datetime).
     """
-    if preset == '1h':
+    if preset == 'once_1h':
         return now + timedelta(hours=1), 'once'
-    if preset == 'tonight':
-        remind_at = now.replace(hour=20, minute=0, second=0, microsecond=0)
-        if remind_at <= now:
-            remind_at += timedelta(days=1)
-        return remind_at, 'once'
-    if preset == 'tomorrow':
-        return (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0), 'once'
-    if preset == 'daily':
-        return (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0), 'daily'
-    if preset == 'weekly':
-        return (now + timedelta(weeks=1)).replace(second=0, microsecond=0), 'weekly'
+    if preset == 'daily_now':
+        return (now + timedelta(days=1)).replace(second=0, microsecond=0), 'daily'
     return None
 
 
@@ -628,14 +627,16 @@ class BotNoteCreateView(APIView):
     """
     POST /api/v1/bot/notes/
     Headers: X-Bot-Secret, X-Telegram-Id
-    Body: EITHER
-      { "text": "...", "preset": "1h"|"tonight"|"tomorrow"|"daily"|"weekly" }
+    Body: ONE of
+      { "text": "...", "preset": "once_1h"|"daily_now" }
+      { "text": "...", "time": "14:30", "repeat": "daily" }
       { "text": "...", "remind_at": "2026-07-20T18:00:00", "repeat": "once"|"daily"|"weekly" }
 
-    remind_at (when given directly) is a NAIVE datetime (no offset) in the
-    user's own local time. presets are resolved the same way, server-side,
-    via user.timezone (_user_tz) — the bot never computes wall-clock times
-    itself, since it only knows its own process clock, not the user's tz.
+    remind_at/time are NAIVE (no offset), expressed in the user's own local
+    time. Everything (presets, time-of-day, raw remind_at) is resolved
+    server-side via user.timezone (_user_tz) — the bot never computes
+    wall-clock times itself, since it only knows its own process clock,
+    not the user's tz.
     """
     permission_classes = [AllowAny]
 
@@ -646,7 +647,10 @@ class BotNoteCreateView(APIView):
 
         data = request.data.copy()
         user_tz = _user_tz(user)
+        now_local = timezone.now().astimezone(user_tz).replace(tzinfo=None)
+
         preset = data.pop('preset', None)
+        time_str = data.pop('time', None)
 
         if preset is not None:
             if preset not in _NOTE_PRESETS:
@@ -654,10 +658,25 @@ class BotNoteCreateView(APIView):
                     {'detail': f'Unknown preset "{preset}". Use one of: {", ".join(sorted(_NOTE_PRESETS))}.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            now_local = timezone.now().astimezone(user_tz).replace(tzinfo=None)
             remind_at, repeat = _resolve_note_preset(preset, now_local)
             data['remind_at'] = user_tz.localize(remind_at).isoformat()
             data['repeat'] = repeat
+        elif time_str is not None:
+            try:
+                hh_str, mm_str = time_str.split(':')
+                hour, minute = int(hh_str), int(mm_str)
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    raise ValueError
+            except (ValueError, AttributeError):
+                return Response(
+                    {'detail': 'time must be in "HH:MM" format, e.g. "09:00".'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            candidate = now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if candidate <= now_local:
+                candidate += timedelta(days=1)
+            data['remind_at'] = user_tz.localize(candidate).isoformat()
+            data['repeat'] = 'daily'
         else:
             try:
                 naive = datetime.fromisoformat(data.get('remind_at', ''))
@@ -667,9 +686,18 @@ class BotNoteCreateView(APIView):
                     {'detail': 'remind_at must be an ISO datetime, e.g. "2026-07-20T18:00:00".'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            data.setdefault('repeat', 'once')
 
-        serializer = NoteSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer = NoteSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+        except DRFValidationError as e:
+            detail = '; '.join(
+                f'{field}: {msgs[0] if isinstance(msgs, list) else msgs}'
+                for field, msgs in serializer.errors.items()
+            )
+            return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
+
         note = serializer.save(user=user)
         return Response(NoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
@@ -757,12 +785,12 @@ class BotNoteMarkSentView(APIView):
 
 class BotBroadcastTargetsView(APIView):
     """
-    GET /api/v1/expenses/bot-broadcast-targets/?mode=daily
+    GET /api/v1/expenses/bot-broadcast-targets/?mode=daily|weekly|all
     Header: X-Bot-Secret
 
     Returns the list of telegram_ids for users who have the given
-    notification mode enabled. Called by Celery/APScheduler to know
-    whom to notify before posting to the bot's broadcast endpoint.
+    notification mode enabled, or every active user when mode=all
+    (used by the bot's admin-only /broadcast command for announcements).
     """
     permission_classes = [AllowAny]
 
@@ -772,15 +800,15 @@ class BotBroadcastTargetsView(APIView):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
 
         mode = request.query_params.get('mode', '')
-        if mode not in ('daily', 'weekly'):
+        if mode not in ('daily', 'weekly', 'all'):
             return Response(
-                {'detail': 'mode must be "daily" or "weekly".'},
+                {'detail': 'mode must be "daily", "weekly" or "all".'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        ids = list(
-            UserProfile.objects
-            .filter(notification_setting=mode, is_active=True)
-            .values_list('telegram_id', flat=True)
-        )
+        qs = UserProfile.objects.filter(is_active=True)
+        if mode != 'all':
+            qs = qs.filter(notification_setting=mode)
+
+        ids = list(qs.values_list('telegram_id', flat=True))
         return Response({'telegram_ids': ids, 'count': len(ids)})

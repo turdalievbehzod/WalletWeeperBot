@@ -1,29 +1,49 @@
 """
 Заметки-напоминания.
 
-Создание — двухшаговый флоу без FSM:
-  1. /note <текст>              — бот сохраняет текст в Redis (PendingNoteStore)
-                                   и показывает кнопки с готовым временем.
-  2. Нажатие кнопки note_when:* — читает текст, шлёт (текст, пресет) на бэкенд;
-                                   бэкенд сам считает remind_at в часовом поясе
-                                   пользователя (бот его не знает) и создаёт
-                                   напоминание.
+Создание — многошаговый флоу без FSM, состояние черновика живёт в Redis
+(PendingNoteStore):
+  1. /note <текст>                 — сохраняем текст, спрашиваем режим.
+  2. note_mode:once|daily          — уточняем: разово или регулярно.
+  3. note_once:1h / note_daily:now — готовый вариант, создаём сразу.
+     note_once:custom / note_daily:custom — просим ввести дату/время
+     текстом и ждём следующее сообщение (see AwaitingNoteInput).
+  4. Свободный текст (если ждём дату/время) — парсим и создаём.
+Во всех случаях бэкенд сам считает remind_at в часовом поясе пользователя
+(бот его не знает).
 
 Список: /notes — активные напоминания с кнопкой удаления на каждом.
 """
+from __future__ import annotations
+
+import re
 from datetime import datetime
 
 from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram.filters import BaseFilter, Command
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from api.client import DjangoAPIError, DjangoClient
 from i18n import t
-from keyboards.inline import note_time_keyboard
+from keyboards.inline import note_daily_keyboard, note_mode_keyboard, note_once_keyboard
 from services.pending_note import PendingNoteStore
 
 router = Router(name='notes')
+
+_DATETIME_RE = re.compile(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$')
+_TIME_RE = re.compile(r'^(\d{1,2}):(\d{2})$')
+
+
+class AwaitingNoteInput(BaseFilter):
+    """True когда для этого пользователя ждём ручной ввод даты/времени — чтобы
+    это сообщение не перехватил быстрый парсер расходов в handlers/expenses.py."""
+
+    async def __call__(self, message: Message, pending_notes: PendingNoteStore) -> bool:
+        if not message.text:
+            return False
+        draft = await pending_notes.get(message.from_user.id)
+        return bool(draft and draft.get('await'))
 
 
 def _repeat_label(repeat: str, lang: str) -> str:
@@ -37,6 +57,42 @@ def _fmt_when(iso_string: str) -> str:
         return iso_string
 
 
+async def _reply(target: CallbackQuery | Message, text: str) -> None:
+    try:
+        if isinstance(target, CallbackQuery):
+            await target.message.edit_text(text, parse_mode='HTML')
+        else:
+            await target.answer(text, parse_mode='HTML')
+    except Exception:
+        pass  # сообщение уже могло быть удалено/устарело — молча игнорируем
+
+
+async def _create_and_confirm(
+    target: CallbackQuery | Message,
+    django: DjangoClient,
+    telegram_id: int,
+    lang: str,
+    text: str,
+    **create_kwargs,
+) -> None:
+    try:
+        note = await django.create_note(telegram_id, text, **create_kwargs)
+    except DjangoAPIError as e:
+        msg = t('not_registered', lang) if e.status_code == 404 else t('note_create_error', lang, detail=e.detail)
+        await _reply(target, msg)
+        return
+
+    await _reply(
+        target,
+        t(
+            'note_created', lang,
+            text=note['text'],
+            when=_fmt_when(note['remind_at']),
+            repeat=_repeat_label(note['repeat'], lang),
+        ),
+    )
+
+
 @router.message(Command('note'))
 async def cmd_note_create(message: Message, pending_notes: PendingNoteStore, lang: str):
     args = message.text.split(maxsplit=1)
@@ -47,49 +103,112 @@ async def cmd_note_create(message: Message, pending_notes: PendingNoteStore, lan
 
     await pending_notes.set(message.from_user.id, text)
     await message.reply(
-        t('note_pick_time', lang, text=text),
+        t('note_pick_mode', lang, text=text),
         parse_mode='HTML',
-        reply_markup=note_time_keyboard(lang),
+        reply_markup=note_mode_keyboard(lang),
     )
 
 
-@router.callback_query(F.data.startswith('note_when:'))
-async def on_note_time_picked(
-    call: CallbackQuery,
-    django: DjangoClient,
-    pending_notes: PendingNoteStore,
-    lang: str,
-):
-    preset = call.data.split(':', 1)[1]
-    telegram_id = call.from_user.id
-
-    text = await pending_notes.pop(telegram_id)
-    if not text:
+@router.callback_query(F.data == 'note_mode:once')
+async def on_mode_once(call: CallbackQuery, pending_notes: PendingNoteStore, lang: str):
+    draft = await pending_notes.get(call.from_user.id)
+    if not draft:
         await call.answer(t('note_expired', lang), show_alert=True)
         return
+    await call.message.edit_text(
+        t('note_pick_once', lang, text=draft['text']),
+        parse_mode='HTML',
+        reply_markup=note_once_keyboard(lang),
+    )
+    await call.answer()
 
-    try:
-        note = await django.create_note(telegram_id, text, preset)
-    except DjangoAPIError as e:
-        if e.status_code == 404:
-            await call.answer(t('not_registered', lang), show_alert=True)
-        else:
-            await call.answer(t('note_create_error', lang, detail=e.detail), show_alert=True)
+
+@router.callback_query(F.data == 'note_mode:daily')
+async def on_mode_daily(call: CallbackQuery, pending_notes: PendingNoteStore, lang: str):
+    draft = await pending_notes.get(call.from_user.id)
+    if not draft:
+        await call.answer(t('note_expired', lang), show_alert=True)
         return
+    await call.message.edit_text(
+        t('note_pick_daily', lang, text=draft['text']),
+        parse_mode='HTML',
+        reply_markup=note_daily_keyboard(lang),
+    )
+    await call.answer()
 
-    await call.answer(t('note_saved', lang))
-    try:
-        await call.message.edit_text(
-            t(
-                'note_created', lang,
-                text=note['text'],
-                when=_fmt_when(note['remind_at']),
-                repeat=_repeat_label(note['repeat'], lang),
-            ),
-            parse_mode='HTML',
+
+@router.callback_query(F.data == 'note_once:1h')
+async def on_once_1h(call: CallbackQuery, django: DjangoClient, pending_notes: PendingNoteStore, lang: str):
+    draft = await pending_notes.pop(call.from_user.id)
+    if not draft:
+        await call.answer(t('note_expired', lang), show_alert=True)
+        return
+    await call.answer()
+    await _create_and_confirm(call, django, call.from_user.id, lang, draft['text'], preset='once_1h')
+
+
+@router.callback_query(F.data == 'note_daily:now')
+async def on_daily_now(call: CallbackQuery, django: DjangoClient, pending_notes: PendingNoteStore, lang: str):
+    draft = await pending_notes.pop(call.from_user.id)
+    if not draft:
+        await call.answer(t('note_expired', lang), show_alert=True)
+        return
+    await call.answer()
+    await _create_and_confirm(call, django, call.from_user.id, lang, draft['text'], preset='daily_now')
+
+
+@router.callback_query(F.data == 'note_once:custom')
+async def on_once_custom(call: CallbackQuery, pending_notes: PendingNoteStore, lang: str):
+    if not await pending_notes.set_awaiting(call.from_user.id, 'once_custom'):
+        await call.answer(t('note_expired', lang), show_alert=True)
+        return
+    await call.message.edit_text(t('note_ask_datetime', lang), parse_mode='HTML')
+    await call.answer()
+
+
+@router.callback_query(F.data == 'note_daily:custom')
+async def on_daily_custom(call: CallbackQuery, pending_notes: PendingNoteStore, lang: str):
+    if not await pending_notes.set_awaiting(call.from_user.id, 'daily_custom'):
+        await call.answer(t('note_expired', lang), show_alert=True)
+        return
+    await call.message.edit_text(t('note_ask_time', lang), parse_mode='HTML')
+    await call.answer()
+
+
+@router.message(AwaitingNoteInput())
+async def on_custom_input(message: Message, django: DjangoClient, pending_notes: PendingNoteStore, lang: str):
+    telegram_id = message.from_user.id
+    draft = await pending_notes.get(telegram_id)
+    kind = draft['await']
+    raw = message.text.strip()
+
+    if kind == 'once_custom':
+        m = _DATETIME_RE.match(raw)
+        if not m:
+            await message.reply(t('note_bad_datetime', lang), parse_mode='HTML')
+            return
+        day, month, year, hour, minute = (int(g) for g in m.groups())
+        try:
+            dt = datetime(year, month, day, hour, minute)
+        except ValueError:
+            await message.reply(t('note_bad_datetime', lang), parse_mode='HTML')
+            return
+        draft = await pending_notes.pop(telegram_id)
+        await _create_and_confirm(
+            message, django, telegram_id, lang, draft['text'],
+            remind_at=dt.isoformat(), repeat='once',
         )
-    except Exception:
-        pass  # сообщение уже могло быть удалено/устарело — молча игнорируем
+
+    elif kind == 'daily_custom':
+        m = _TIME_RE.match(raw)
+        if not m or not (0 <= int(m.group(1)) <= 23 and 0 <= int(m.group(2)) <= 59):
+            await message.reply(t('note_bad_time', lang), parse_mode='HTML')
+            return
+        draft = await pending_notes.pop(telegram_id)
+        await _create_and_confirm(
+            message, django, telegram_id, lang, draft['text'],
+            time=raw, repeat='daily',
+        )
 
 
 @router.message(Command('notes'))

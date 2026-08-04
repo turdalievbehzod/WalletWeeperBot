@@ -69,20 +69,47 @@ STRINGS: dict[str, dict[str, str]] = {
         'ru': '📝 Формат: <code>/note текст</code>\nНапример: <code>/note Забрать посылку</code>',
         'en': '📝 Format: <code>/note text</code>\nExample: <code>/note Pick up the package</code>',
     },
-    'note_pick_time': {
-        'ru': '🕐 Когда напомнить?\n«{text}»',
-        'en': '🕐 When should I remind you?\n"{text}"',
+    'note_pick_mode': {
+        'ru': '🕐 Как напомнить?\n«{text}»',
+        'en': '🕐 How should I remind you?\n"{text}"',
+    },
+    'note_mode_once':  {'ru': '1️⃣ Одноразово', 'en': '1️⃣ One time'},
+    'note_mode_daily': {'ru': '🔁 Регулярно', 'en': '🔁 Recurring'},
+
+    'note_pick_once': {
+        'ru': '⏰ Когда напомнить один раз?\n«{text}»',
+        'en': '⏰ When should I remind you once?\n"{text}"',
+    },
+    'note_once_1h':     {'ru': '⏰ Через час', 'en': '⏰ In an hour'},
+    'note_once_custom': {'ru': '📅 Указать время', 'en': '📅 Pick a time'},
+
+    'note_pick_daily': {
+        'ru': '🔁 Когда напоминать каждый день?\n«{text}»',
+        'en': '🔁 When should I remind you every day?\n"{text}"',
+    },
+    'note_daily_now':    {'ru': '🔁 Каждый день в это время', 'en': '🔁 Every day at this time'},
+    'note_daily_custom': {'ru': '📅 Указать время', 'en': '📅 Pick a time'},
+
+    'note_ask_datetime': {
+        'ru': '📅 Введи дату и время в формате <code>дд.мм.гггг чч:мм</code>\nНапример: <code>25.12.2026 14:30</code>',
+        'en': '📅 Enter the date and time as <code>dd.mm.yyyy hh:mm</code>\nExample: <code>25.12.2026 14:30</code>',
+    },
+    'note_ask_time': {
+        'ru': '📅 Введи время в формате <code>чч:мм</code>\nНапример: <code>09:00</code>',
+        'en': '📅 Enter the time as <code>hh:mm</code>\nExample: <code>09:00</code>',
+    },
+    'note_bad_datetime': {
+        'ru': '❌ Не удалось распознать дату и время. Формат: <code>дд.мм.гггг чч:мм</code>',
+        'en': '❌ Could not parse that date/time. Format: <code>dd.mm.yyyy hh:mm</code>',
+    },
+    'note_bad_time': {
+        'ru': '❌ Не удалось распознать время. Формат: <code>чч:мм</code>',
+        'en': '❌ Could not parse that time. Format: <code>hh:mm</code>',
     },
     'note_expired': {
         'ru': '⌛ Черновик напоминания устарел, попробуй /note ещё раз.',
         'en': "⌛ This reminder draft expired, please try /note again.",
     },
-    'note_saved': {'ru': '✅ Напоминание сохранено', 'en': '✅ Reminder saved'},
-    'note_time_1h':       {'ru': '⏰ Через час', 'en': '⏰ In an hour'},
-    'note_time_tonight':  {'ru': '🌙 Сегодня вечером (20:00)', 'en': '🌙 Tonight (20:00)'},
-    'note_time_tomorrow': {'ru': '🌅 Завтра утром (09:00)', 'en': '🌅 Tomorrow morning (09:00)'},
-    'note_time_daily':    {'ru': '🔁 Каждый день (с завтра, 09:00)', 'en': '🔁 Every day (from tomorrow, 09:00)'},
-    'note_time_weekly':   {'ru': '📅 Раз в неделю (с сегодня, через 7 дней)', 'en': '📅 Once a week (starting in 7 days)'},
     'note_create_error': {
         'ru': '❌ Не удалось создать напоминание: {detail}',
         'en': '❌ Failed to create the reminder: {detail}',
@@ -117,6 +144,30 @@ STRINGS: dict[str, dict[str, str]] = {
     'repeat_once':   {'ru': 'разово', 'en': 'once'},
     'repeat_daily':  {'ru': 'ежедневно', 'en': 'daily'},
     'repeat_weekly': {'ru': 'еженедельно', 'en': 'weekly'},
+
+    'broadcast_prompt': {
+        'ru': '📢 Отправь текст рассылки следующим сообщением.',
+        'en': '📢 Send the announcement text as your next message.',
+    },
+    'broadcast_preview': {
+        'ru': '📢 <b>Предпросмотр рассылки</b>\n\n{text}\n\nОтправить всем зарегистрированным пользователям?',
+        'en': '📢 <b>Broadcast preview</b>\n\n{text}\n\nSend this to all registered users?',
+    },
+    'broadcast_send_button':   {'ru': '✅ Отправить', 'en': '✅ Send'},
+    'broadcast_cancel_button': {'ru': '❌ Отмена', 'en': '❌ Cancel'},
+    'broadcast_expired': {
+        'ru': '⌛ Черновик рассылки устарел, начни заново: /broadcast',
+        'en': '⌛ This broadcast draft expired, start again with /broadcast',
+    },
+    'broadcast_error': {
+        'ru': '❌ Не удалось получить список пользователей: {detail}',
+        'en': '❌ Failed to fetch the recipient list: {detail}',
+    },
+    'broadcast_done': {
+        'ru': '✅ Рассылка завершена: отправлено {sent}, ошибок {failed}',
+        'en': '✅ Broadcast finished: sent {sent}, failed {failed}',
+    },
+    'broadcast_cancelled': {'ru': '❌ Рассылка отменена', 'en': '❌ Broadcast cancelled'},
 }
 
 

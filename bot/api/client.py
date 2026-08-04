@@ -66,6 +66,13 @@ class DjangoClient:
 
     # ── Notifications ─────────────────────────────────────────────────────────
 
+    async def get_notification(self, telegram_id: int) -> dict:
+        """GET /expenses/bot-notify/ → {"notification_setting": "off" | "daily" | "weekly"}"""
+        return await self._request(
+            'GET', '/expenses/bot-notify/',
+            headers=self._bot_headers(telegram_id),
+        )
+
     async def set_notification(self, telegram_id: int, setting: str) -> dict:
         """PATCH /expenses/bot-notify/ — setting: 'off' | 'daily' | 'weekly'"""
         return await self._request(
@@ -93,17 +100,20 @@ class DjangoClient:
 
     # ── Notes / reminders ────────────────────────────────────────────────────
 
-    async def create_note(self, telegram_id: int, text: str, preset: str) -> dict:
+    async def create_note(self, telegram_id: int, text: str, **fields) -> dict:
         """
         POST /bot/notes/
-        preset: '1h' | 'tonight' | 'tomorrow' | 'daily' | 'weekly' — the
-        backend resolves this to an actual remind_at in the user's own
-        timezone (user.timezone), since the bot doesn't know it.
+        fields is ONE of:
+          preset='once_1h' | 'daily_now'
+          time='14:30', repeat='daily'
+          remind_at='2026-12-25T14:30:00', repeat='once'
+        The backend resolves all of these to an actual remind_at in the
+        user's own timezone (user.timezone), since the bot doesn't know it.
         """
         return await self._request(
             'POST', '/bot/notes/',
             headers=self._bot_headers(telegram_id),
-            json={'text': text, 'preset': preset},
+            json={'text': text, **fields},
         )
 
     async def list_notes(self, telegram_id: int) -> list[dict]:
@@ -134,10 +144,10 @@ class DjangoClient:
             headers=self._bot_headers(),
         )
 
-    # ── Broadcast targets (called by scheduler, not by bot) ───────────────────
+    # ── Broadcast targets ──────────────────────────────────────────────────────
 
     async def get_broadcast_targets(self, mode: str) -> list[int]:
-        """GET /expenses/bot-broadcast-targets/?mode=daily|weekly"""
+        """GET /expenses/bot-broadcast-targets/?mode=daily|weekly|all — 'all' backs the /broadcast admin command."""
         data = await self._request(
             'GET', f'/expenses/bot-broadcast-targets/?mode={mode}',
             headers=self._bot_headers(),

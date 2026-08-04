@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -14,6 +16,7 @@ class Config:
     redis_url:        str
     internal_secret:  str
     broadcast_port:   int
+    admin_ids:        frozenset[int]
 
 
 def load_config() -> Config:
@@ -23,6 +26,11 @@ def load_config() -> Config:
             raise EnvironmentError(f'Missing required env var: {key}')
         return val
 
+    admin_ids_raw = os.getenv('ADMIN_IDS', '')
+    admin_ids = frozenset(
+        int(x) for x in admin_ids_raw.split(',') if x.strip()
+    )
+
     return Config(
         bot_token       = _require('BOT_TOKEN'),
         django_api_url  = os.getenv('DJANGO_API_URL', 'http://localhost:8000').rstrip('/'),
@@ -31,4 +39,5 @@ def load_config() -> Config:
         redis_url       = os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
         internal_secret = os.getenv('INTERNAL_SECRET', 'change-me'),
         broadcast_port  = int(os.getenv('BROADCAST_PORT', '8001')),
+        admin_ids       = admin_ids,
     )
