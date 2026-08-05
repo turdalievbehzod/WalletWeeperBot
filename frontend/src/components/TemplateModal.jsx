@@ -4,13 +4,14 @@ import { createTemplate, deleteTemplate } from '../api/expenses'
 import { fmtAmount } from '../utils/format'
 import { useLanguage } from '../i18n/LanguageContext'
 
-export default function TemplateModal({ templates, onApply, onClose, onRefresh }) {
+export default function TemplateModal({ templates, categories, onApply, onClose, onRefresh }) {
   const { t } = useLanguage()
-  const [showForm, setShowForm]   = useState(false)
-  const [newTitle, setNewTitle]   = useState('')
-  const [newAmount, setNewAmount] = useState('')
-  const [saving, setSaving]       = useState(false)
-  const [checkedId, setCheckedId] = useState(null)
+  const [showForm, setShowForm]         = useState(false)
+  const [newTitle, setNewTitle]         = useState('')
+  const [newAmount, setNewAmount]       = useState('')
+  const [newCategoryId, setNewCategoryId] = useState(null)
+  const [saving, setSaving]             = useState(false)
+  const [checkedId, setCheckedId]       = useState(null)
 
   const handleAdd = async () => {
     const title  = newTitle.trim()
@@ -18,9 +19,10 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
     if (!title || !amount || amount <= 0) return
     setSaving(true)
     try {
-      await createTemplate(title, amount, null)
+      await createTemplate(title, amount, newCategoryId)
       setNewTitle('')
       setNewAmount('')
+      setNewCategoryId(null)
       setShowForm(false)
       onRefresh()
     } finally {
@@ -114,6 +116,24 @@ export default function TemplateModal({ templates, onApply, onClose, onRefresh }
                   >
                     {saving ? '...' : 'OK'}
                   </button>
+                </div>
+
+                {/* Category picker — without this, applied templates had no category */}
+                <div className="flex gap-2 overflow-x-auto modal-scroll pt-2 pb-1">
+                  {categories?.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setNewCategoryId(prev => prev === cat.id ? null : cat.id)}
+                      className={`flex-shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                        cat.id === newCategoryId
+                          ? 'bg-white text-orange-500'
+                          : 'bg-white/20 text-white hover:bg-white/30'
+                      }`}
+                    >
+                      <span>{cat.icon}</span>
+                      <span className="truncate max-w-[5rem]">{cat.name}</span>
+                    </button>
+                  ))}
                 </div>
               </motion.div>
             )}

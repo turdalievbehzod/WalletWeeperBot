@@ -145,9 +145,9 @@ STRINGS: dict[str, dict[str, str]] = {
     'repeat_daily':  {'ru': 'ежедневно', 'en': 'daily'},
     'repeat_weekly': {'ru': 'еженедельно', 'en': 'weekly'},
 
-    'broadcast_prompt': {
-        'ru': '📢 Отправь текст рассылки следующим сообщением.',
-        'en': '📢 Send the announcement text as your next message.',
+    'broadcast_usage': {
+        'ru': '📢 Формат: <code>/broadcast текст</code>\nНапример: <code>/broadcast Добавили новую функцию!</code>',
+        'en': '📢 Format: <code>/broadcast text</code>\nExample: <code>/broadcast We shipped a new feature!</code>',
     },
     'broadcast_preview': {
         'ru': '📢 <b>Предпросмотр рассылки</b>\n\n{text}\n\nОтправить всем зарегистрированным пользователям?',

@@ -1,13 +1,18 @@
 """
-Рассылка от владельца бота — /broadcast.
+Рассылка от владельца бота — /broadcast <текст>.
 
 Доступна только telegram_id из ADMIN_IDS (bot/config.py). Флоу:
-  1. /broadcast                — просим прислать текст следующим сообщением.
-  2. свободный текст от админа — сохраняем как черновик, показываем
-     предпросмотр с кнопками [Отправить] / [Отмена].
-  3. broadcast_confirm         — тянем всех зарегистрированных пользователей
+  1. /broadcast <текст>  — сохраняем черновик, показываем предпросмотр
+     с кнопками [Отправить] / [Отмена].
+  2. broadcast_confirm   — тянем всех зарегистрированных пользователей
      из бэкенда и рассылаем всем одновременно (services/broadcast.py).
      broadcast_cancel — просто чистим черновик.
+
+Текст рассылки передаётся аргументом команды (как /note <текст>), а НЕ
+отдельным следующим сообщением — иначе пришлось бы перехватывать «следующее
+сообщение от админа» отдельным фильтром, а это в реальности перехватывало
+вообще любой текст, включая обычный быстрый ввод расхода, если админ забыл
+довести /broadcast до конца (баг, найденный при тестировании).
 
 Немного жёстче, чем /note: неадмины не получают вообще никакого ответа —
 фильтр IsAdmin просто не пропускает апдейт дальше, feature не палится.
@@ -15,7 +20,7 @@
 from __future__ import annotations
 
 from aiogram import F, Router
-from aiogram.filters import BaseFilter, Command
+from aiogram.filters import BaseFilter, Command, CommandObject
 from aiogram.types import CallbackQuery, Message
 
 from api.client import DjangoAPIError, DjangoClient
@@ -32,24 +37,16 @@ class IsAdmin(BaseFilter):
         return event.from_user.id in admin_ids
 
 
-class AwaitingBroadcastText(BaseFilter):
-    async def __call__(self, message: Message, pending_broadcast: PendingBroadcastStore, admin_ids: frozenset[int]) -> bool:
-        if not message.text or message.from_user.id not in admin_ids:
-            return False
-        return await pending_broadcast.is_awaiting(message.from_user.id)
-
-
 @router.message(Command('broadcast'), IsAdmin())
-async def cmd_broadcast(message: Message, pending_broadcast: PendingBroadcastStore, lang: str):
-    await pending_broadcast.start_awaiting(message.from_user.id)
-    await message.reply(t('broadcast_prompt', lang), parse_mode='HTML')
+async def cmd_broadcast(message: Message, command: CommandObject, pending_broadcast: PendingBroadcastStore, lang: str):
+    text = (command.args or '').strip()
+    if not text:
+        await message.reply(t('broadcast_usage', lang), parse_mode='HTML')
+        return
 
-
-@router.message(AwaitingBroadcastText())
-async def on_broadcast_text(message: Message, pending_broadcast: PendingBroadcastStore, lang: str):
-    await pending_broadcast.set_text(message.from_user.id, message.text)
+    await pending_broadcast.set_text(message.from_user.id, text)
     await message.reply(
-        t('broadcast_preview', lang, text=message.text),
+        t('broadcast_preview', lang, text=text),
         parse_mode='HTML',
         reply_markup=broadcast_confirm_keyboard(lang),
     )

@@ -261,6 +261,7 @@ export default function App() {
           <TemplateModal
             key="tmpl-modal"
             templates={templates}
+            categories={categories}
             onApply={handleApplyTemplate}
             onClose={() => setTmplModalOpen(false)}
             onRefresh={() => getTemplates().then(d => setTemplates(d.results ?? d))}

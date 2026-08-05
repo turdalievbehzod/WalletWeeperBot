@@ -74,13 +74,14 @@ async def _create_and_confirm(
     lang: str,
     text: str,
     **create_kwargs,
-) -> None:
+) -> bool:
+    """Creates the note and renders a confirmation. Returns whether it succeeded."""
     try:
         note = await django.create_note(telegram_id, text, **create_kwargs)
     except DjangoAPIError as e:
         msg = t('not_registered', lang) if e.status_code == 404 else t('note_create_error', lang, detail=e.detail)
         await _reply(target, msg)
-        return
+        return False
 
     await _reply(
         target,
@@ -91,6 +92,7 @@ async def _create_and_confirm(
             repeat=_repeat_label(note['repeat'], lang),
         ),
     )
+    return True
 
 
 @router.message(Command('note'))
@@ -193,22 +195,31 @@ async def on_custom_input(message: Message, django: DjangoClient, pending_notes:
         except ValueError:
             await message.reply(t('note_bad_datetime', lang), parse_mode='HTML')
             return
-        draft = await pending_notes.pop(telegram_id)
-        await _create_and_confirm(
+        # Черновик не трогаем до подтверждения бэкендом — если он откажет
+        # (например дата уже в прошлом), просто попросим ввести ещё раз,
+        # не заставляя проходить /note → выбор режима заново.
+        ok = await _create_and_confirm(
             message, django, telegram_id, lang, draft['text'],
             remind_at=dt.isoformat(), repeat='once',
         )
+        if ok:
+            await pending_notes.pop(telegram_id)
+        else:
+            await message.answer(t('note_ask_datetime', lang), parse_mode='HTML')
 
     elif kind == 'daily_custom':
         m = _TIME_RE.match(raw)
         if not m or not (0 <= int(m.group(1)) <= 23 and 0 <= int(m.group(2)) <= 59):
             await message.reply(t('note_bad_time', lang), parse_mode='HTML')
             return
-        draft = await pending_notes.pop(telegram_id)
-        await _create_and_confirm(
+        ok = await _create_and_confirm(
             message, django, telegram_id, lang, draft['text'],
             time=raw, repeat='daily',
         )
+        if ok:
+            await pending_notes.pop(telegram_id)
+        else:
+            await message.answer(t('note_ask_time', lang), parse_mode='HTML')
 
 
 @router.message(Command('notes'))
