@@ -48,11 +48,12 @@ export const deleteTemplate = id =>
   client.delete(`/templates/${id}/`)
 
 // Transactions
-export const createTransaction = (amount, categoryId, description = '') =>
+export const createTransaction = (amount, categoryId, description = '', transactionType = 'expense') =>
   client.post('/expenses/', {
     amount,
     category: categoryId || null,
     description,
+    transaction_type: transactionType,
   }).then(r => r.data)
 
 export const deleteTransaction = id =>

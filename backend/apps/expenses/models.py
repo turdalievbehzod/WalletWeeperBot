@@ -41,15 +41,22 @@ class Category(models.Model):
 
 class Transaction(models.Model):
     """
-    A single expense entry.
+    A single ledger entry — either money spent (expense) or received (income).
 
-    created_at is NOT auto_now_add so users can back-fill past expenses.
+    created_at is NOT auto_now_add so users can back-fill past entries.
     It defaults to now() in the serializer. All values are stored as UTC;
     timezone conversion happens at aggregation time (TruncDay with tzinfo).
 
     category uses SET_NULL so deleting a custom category never deletes spend
     history — the transaction simply moves to the "Uncategorised" bucket.
     """
+    EXPENSE = 'expense'
+    INCOME  = 'income'
+    TYPE_CHOICES = [
+        (EXPENSE, 'Expense'),
+        (INCOME,  'Income'),
+    ]
+
     user     = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -62,6 +69,7 @@ class Transaction(models.Model):
         related_name='transactions',
     )
     amount      = models.DecimalField(max_digits=16, decimal_places=4)
+    transaction_type = models.CharField(max_length=7, choices=TYPE_CHOICES, default=EXPENSE)
     description = models.CharField(max_length=255, blank=True, null=True)
     created_at  = models.DateTimeField(default=timezone.now)
 

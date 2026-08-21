@@ -8,13 +8,15 @@ const PERIOD_KEYS = ['this_week', 'this_month', 'this_year']
 const CIRCLE_SIZE = 160   // px, active circle diameter
 const SIDE_SCALE  = 0.72  // side circles are 72% of active size
 
-export default function Carousel({ summary, onCurrencyTap, onLanguageTap }) {
-  const { t, language } = useLanguage()
+export default function Carousel({ summary }) {
+  const { t } = useLanguage()
   const [activeIdx, setActiveIdx] = useState(1)   // start on "month"
   const [dragDir, setDragDir]     = useState(0)    // -1 left, +1 right
 
-  const total = summary?.[PERIOD_KEYS[activeIdx]] ?? 0
-  const currency = summary?.currency === 'UZS' ? t('carousel.uzsLabel') : summary?.currency ?? t('carousel.uzsLabel')
+  const activePeriod = summary?.[PERIOD_KEYS[activeIdx]] ?? {}
+  const total   = activePeriod.expense ?? 0
+  const income  = activePeriod.income ?? 0
+  const balance = activePeriod.balance ?? 0
 
   const goTo = idx => {
     if (idx < 0 || idx > 2) return
@@ -84,21 +86,6 @@ export default function Carousel({ summary, onCurrencyTap, onLanguageTap }) {
                     <span className="text-2xl font-bold mt-1 leading-tight">
                       {fmtAmount(total)}
                     </span>
-                    <div className="mt-1.5 flex items-center gap-1">
-                      <button
-                        onClick={e => { e.stopPropagation(); onCurrencyTap?.() }}
-                        className="flex items-center gap-1 pl-2.5 pr-2 py-1 rounded-full bg-white/25 active:bg-white/40 text-white text-xs font-semibold leading-none"
-                      >
-                        <span>{currency}</span>
-                        <span className="text-[10px] opacity-90">⇄</span>
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); onLanguageTap?.() }}
-                        className="flex items-center justify-center w-6 h-6 rounded-full bg-white/25 active:bg-white/40 text-white text-xs leading-none"
-                      >
-                        {language === 'en' ? '🇬🇧' : '🇷🇺'}
-                      </button>
-                    </div>
                   </motion.div>
                 </AnimatePresence>
               ) : (
@@ -124,6 +111,18 @@ export default function Carousel({ summary, onCurrencyTap, onLanguageTap }) {
             }`}
           />
         ))}
+      </div>
+
+      {/* Доход / Остаток за выбранный период */}
+      <div className="flex gap-3 w-full px-4 mt-5">
+        <div className="flex-1 bg-blue-500 rounded-2xl px-4 py-3 text-center shadow-sm">
+          <div className="text-white/80 text-xs font-medium">{t('carousel.income')}</div>
+          <div className="text-white text-lg font-bold mt-0.5">{fmtAmount(income)}</div>
+        </div>
+        <div className="flex-1 bg-blue-500 rounded-2xl px-4 py-3 text-center shadow-sm">
+          <div className="text-white/80 text-xs font-medium">{t('carousel.balance')}</div>
+          <div className="text-white text-lg font-bold mt-0.5">{fmtAmount(balance)}</div>
+        </div>
       </div>
     </div>
   )

@@ -66,6 +66,7 @@ export default function App() {
   // ── Form state ────────────────────────────────────────────────────────────
   const [amount,   setAmount]   = useState('')
   const [category, setCategory] = useState(null)
+  const [transactionType, setTransactionType] = useState('expense')
   const [submitting, setSubmitting] = useState(false)
 
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ export default function App() {
     }
   }
 
-  // ── Submit expense ─────────────────────────────────────────────────────────
+  // ── Submit transaction (income or expense) ──────────────────────────────────
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) return
     setSubmitting(true)
@@ -157,9 +158,12 @@ export default function App() {
       await createTransaction(
         parseFloat(amount),
         category?.id ?? null,
+        '',
+        transactionType,
       )
       setAmount('')
       setCategory(null)
+      setTransactionType('expense')
       await loadAll()
     } catch (err) {
       console.error('[Submit] Failed:', err)
@@ -168,15 +172,33 @@ export default function App() {
     }
   }
 
-  // ── Apply template ─────────────────────────────────────────────────────────
+  // ── Apply template (templates are expense-only) ─────────────────────────────
   const handleApplyTemplate = (tpl) => {
     if (tpl.amount) setAmount(String(tpl.amount))
     if (tpl.category) setCategory({ id: tpl.category, name: tpl.category_name, icon: tpl.category_icon })
+    setTransactionType('expense')
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-cream">
+      {/* ── Currency / language — fixed top-right corner ── */}
+      <div className="fixed top-3 right-3 z-40 flex items-center gap-2">
+        <button
+          onClick={() => setCurrModalOpen(true)}
+          className="flex items-center gap-1.5 pl-3.5 pr-3 h-10 rounded-full bg-white shadow-md active:scale-95 transition-transform text-blue-500 text-sm font-semibold"
+        >
+          <span>{user?.currency ?? 'UZS'}</span>
+          <span className="text-xs opacity-70">⇄</span>
+        </button>
+        <button
+          onClick={() => setLangModalOpen(true)}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md active:scale-95 transition-transform text-lg"
+        >
+          {user?.language === 'en' ? '🇬🇧' : '🇷🇺'}
+        </button>
+      </div>
+
       {/* ── Detail views (slide over main screen) ── */}
       <AnimatePresence mode="wait">
         {view === 'week-details' && (
@@ -188,7 +210,7 @@ export default function App() {
             transition={{ type: 'spring', stiffness: 300, damping: 32 }}
             className="fixed inset-0 z-30 overflow-y-auto"
           >
-            <WeekDetails days={weekDays} onBack={() => setView('home')} />
+            <WeekDetails days={weekDays} onBack={() => setView('home')} onRefresh={() => loadDetails('week')} />
           </motion.div>
         )}
 
@@ -201,7 +223,7 @@ export default function App() {
             transition={{ type: 'spring', stiffness: 300, damping: 32 }}
             className="fixed inset-0 z-30 overflow-y-auto"
           >
-            <MonthDetails weeks={monthWeeks} onBack={() => setView('home')} />
+            <MonthDetails weeks={monthWeeks} onBack={() => setView('home')} onRefresh={() => loadDetails('month')} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -210,21 +232,19 @@ export default function App() {
       <div className="max-w-sm mx-auto pb-10">
 
         {/* Карусель сумм */}
-        <Carousel
-          summary={summary}
-          onCurrencyTap={() => setCurrModalOpen(true)}
-          onLanguageTap={() => setLangModalOpen(true)}
-        />
+        <Carousel summary={summary} />
 
         <SectionDivider />
 
-        {/* Форма добавления расхода */}
+        {/* Форма добавления дохода/расхода */}
         <ExpenseForm
           amount={amount}
           setAmount={setAmount}
           selectedCategory={category}
           onOpenCategory={() => setCatModalOpen(true)}
           onOpenTemplates={() => setTmplModalOpen(true)}
+          transactionType={transactionType}
+          onTransactionTypeChange={setTransactionType}
           onSubmit={handleSubmit}
           submitting={submitting}
         />
@@ -238,7 +258,6 @@ export default function App() {
           loading={loading}
           onWeekDetails={() => loadDetails('week')}
           onMonthDetails={() => loadDetails('month')}
-          onRefresh={loadAll}
         />
       </div>
 

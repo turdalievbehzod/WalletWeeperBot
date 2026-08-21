@@ -1,13 +1,19 @@
 export const translations = {
   ru: {
     carousel: {
-      title: 'Общие расходы',
+      title: 'Общие показатели',
       periods: {
         this_week:  'За эту неделю',
         this_month: 'За этот месяц',
         this_year:  'За этот год',
       },
       uzsLabel: 'сум',
+      income: 'Доход',
+      balance: 'Остаток',
+    },
+    typeToggle: {
+      income: 'Доход',
+      expense: 'Расход',
     },
     currencyModal: {
       title: 'Валюта',
@@ -59,6 +65,9 @@ export const translations = {
       total: 'Итого: {amount}',
       empty: 'Нет записей',
       more: 'Подробнее',
+      incomeLabel: 'Доход',
+      expenseLabel: 'Расход',
+      balanceLabel: 'Остаток',
     },
     weekDetails: {
       title: 'За прошлую неделю',
@@ -72,13 +81,19 @@ export const translations = {
 
   en: {
     carousel: {
-      title: 'Total expenses',
+      title: 'Overview',
       periods: {
         this_week:  'This week',
         this_month: 'This month',
         this_year:  'This year',
       },
       uzsLabel: 'UZS',
+      income: 'Income',
+      balance: 'Balance',
+    },
+    typeToggle: {
+      income: 'Income',
+      expense: 'Expense',
     },
     currencyModal: {
       title: 'Currency',
@@ -130,6 +145,9 @@ export const translations = {
       total: 'Total: {amount}',
       empty: 'No records',
       more: 'Details',
+      incomeLabel: 'Income',
+      expenseLabel: 'Expense',
+      balanceLabel: 'Balance',
     },
     weekDetails: {
       title: 'Last week',

@@ -58,6 +58,7 @@ def _tx_to_dict(t: Transaction) -> dict:
         'id': t.id,
         'description': name,
         'amount': float(t.amount),
+        'type': t.transaction_type,
         'category_name': t.category.name if t.category else None,
         'category_icon': t.category.icon if t.category else None,
         'created_at': t.created_at.isoformat(),
@@ -183,7 +184,9 @@ class DashboardView(APIView):
         # Exclusive upper bound — "up to but not including tomorrow 00:00 local"
         tomorrow    = today_start + timedelta(days=1)
 
-        base_qs = Transaction.objects.filter(user=user)
+        # Dashboard predates the income/expense split — keep it expense-only
+        # so its numbers don't silently change meaning for existing callers.
+        base_qs = Transaction.objects.filter(user=user, transaction_type=Transaction.EXPENSE)
 
         def _sum(start, end) -> Decimal:
             return (
@@ -246,7 +249,8 @@ class CalendarView(APIView):
 
         rows = (
             Transaction.objects
-            .filter(user=user, created_at__gte=start, created_at__lt=end)
+            # Calendar heatmap is expense-only — same reasoning as DashboardView.
+            .filter(user=user, transaction_type=Transaction.EXPENSE, created_at__gte=start, created_at__lt=end)
             # TruncDay with tzinfo converts the stored UTC value to local time
             # before truncating, ensuring correct calendar-day grouping.
             .annotate(day=TruncDay('created_at', tzinfo=user_tz))
@@ -305,7 +309,8 @@ class BudgetSimulatorView(APIView):
 
         month_total: Decimal = (
             Transaction.objects
-            .filter(user=user, created_at__gte=month_start, created_at__lt=month_end)
+            # Simulator only makes sense against real spending — expense-only.
+            .filter(user=user, transaction_type=Transaction.EXPENSE, created_at__gte=month_start, created_at__lt=month_end)
             .aggregate(total=Sum('amount'))['total']
             or Decimal('0')
         )
@@ -339,7 +344,9 @@ class BudgetSimulatorView(APIView):
 class SummaryView(APIView):
     """
     GET /api/v1/summary/
-    Returns this_week / this_month / this_year totals for the expense carousel.
+    Returns this_week / this_month / this_year totals for the carousel, each
+    broken down into {expense, income, balance} — balance = income - expense
+    for that period.
     All ranges start from Monday (week) or 1st (month/year) and end at "now".
     """
     permission_classes = [IsAuthenticated]
@@ -357,16 +364,21 @@ class SummaryView(APIView):
 
         base_qs = Transaction.objects.filter(user=user)
 
-        def _s(start, end):
-            return float(
+        def _period(start, end):
+            rows = (
                 base_qs.filter(created_at__gte=start, created_at__lt=end)
-                .aggregate(t=Sum('amount'))['t'] or 0
+                .values('transaction_type')
+                .annotate(total=Sum('amount'))
             )
+            totals = {row['transaction_type']: float(row['total']) for row in rows}
+            expense = totals.get(Transaction.EXPENSE, 0.0)
+            income  = totals.get(Transaction.INCOME, 0.0)
+            return {'expense': expense, 'income': income, 'balance': income - expense}
 
         return Response({
-            'this_week':  _s(week_start, tomorrow),
-            'this_month': _s(month_start, tomorrow),
-            'this_year':  _s(year_start, tomorrow),
+            'this_week':  _period(week_start, tomorrow),
+            'this_month': _period(month_start, tomorrow),
+            'this_year':  _period(year_start, tomorrow),
             'currency':   user.currency,
         })
 
@@ -382,7 +394,9 @@ class HistoryMainView(APIView):
       • today      — transactions since local midnight
       • last_week  — previous full calendar week (Mon–Sun)
       • last_month — previous full calendar month
-    Each block: { total_sum, transactions[] }
+    Each block: { income, expense, balance, transactions[] } — transactions
+    is a mixed list (both types, each item tagged with "type"); balance is
+    income - expense for that block.
     """
     permission_classes = [IsAuthenticated]
 
@@ -403,7 +417,9 @@ class HistoryMainView(APIView):
 
         def _block(start, end):
             items = [_tx_to_dict(t) for t in base_qs.filter(created_at__gte=start, created_at__lt=end)]
-            return {'total_sum': sum(i['amount'] for i in items), 'transactions': items}
+            expense = sum(i['amount'] for i in items if i['type'] == Transaction.EXPENSE)
+            income  = sum(i['amount'] for i in items if i['type'] == Transaction.INCOME)
+            return {'income': income, 'expense': expense, 'balance': income - expense, 'transactions': items}
 
         return Response({
             'today':      _block(today_start, tomorrow),
@@ -419,8 +435,11 @@ class HistoryMainView(APIView):
 class WeekDetailsView(APIView):
     """
     GET /api/v1/history/week-details/
-    Breaks down last week's spending by calendar day.
-    Response: [{day_name, date, total_sum, transactions[]}, ...]  ordered Mon→Sun.
+    Breaks down last week's income/expense by calendar day.
+    Response: [{day_name, date, income_total, expense_total, balance, transactions[]}, ...]
+    ordered Mon→Sun. transactions is a mixed list (both types, each tagged
+    with "type") — the frontend filters which type's items to display via
+    its own Доход/Расход toggle rather than round-tripping to the API.
     """
     permission_classes = [IsAuthenticated]
 
@@ -449,11 +468,19 @@ class WeekDetailsView(APIView):
                 grouped[key] = {
                     'day_name': days[t.day.weekday()],
                     'date': key,
-                    'total_sum': 0,
+                    'income_total': 0,
+                    'expense_total': 0,
                     'transactions': [],
                 }
-            grouped[key]['total_sum'] += float(t.amount)
+            amount = float(t.amount)
+            if t.transaction_type == Transaction.INCOME:
+                grouped[key]['income_total'] += amount
+            else:
+                grouped[key]['expense_total'] += amount
             grouped[key]['transactions'].append(_tx_to_dict(t))
+
+        for g in grouped.values():
+            g['balance'] = g['income_total'] - g['expense_total']
 
         return Response(sorted(grouped.values(), key=lambda x: x['date']))
 
@@ -465,9 +492,10 @@ class WeekDetailsView(APIView):
 class MonthDetailsView(APIView):
     """
     GET /api/v1/history/month-details/
-    Breaks down last month's spending by week-within-month.
+    Breaks down last month's income/expense by week-within-month.
     Week boundaries: days 1–7 = Неделя 1, 8–14 = Неделя 2, etc.
-    Response: [{week_label, week_num, total_sum, transactions[]}, ...]
+    Response: [{week_label, week_num, income_total, expense_total, balance, transactions[]}, ...]
+    transactions is a mixed list (both types, each tagged with "type").
     """
     permission_classes = [IsAuthenticated]
 
@@ -496,11 +524,19 @@ class MonthDetailsView(APIView):
                 grouped[week_num] = {
                     'week_label': week_label.format(week_num),
                     'week_num': week_num,
-                    'total_sum': 0,
+                    'income_total': 0,
+                    'expense_total': 0,
                     'transactions': [],
                 }
-            grouped[week_num]['total_sum'] += float(t.amount)
+            amount = float(t.amount)
+            if t.transaction_type == Transaction.INCOME:
+                grouped[week_num]['income_total'] += amount
+            else:
+                grouped[week_num]['expense_total'] += amount
             grouped[week_num]['transactions'].append(_tx_to_dict(t))
+
+        for g in grouped.values():
+            g['balance'] = g['income_total'] - g['expense_total']
 
         return Response(sorted(grouped.values(), key=lambda x: x['week_num']))
 

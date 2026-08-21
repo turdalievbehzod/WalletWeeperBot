@@ -1,66 +1,67 @@
 import { motion } from 'framer-motion'
-import TransactionItem from './TransactionItem'
 import { fmtAmount } from '../utils/format'
-import { deleteTransaction } from '../api/expenses'
 import { useLanguage } from '../i18n/LanguageContext'
 
-// ─── Скелетон одной строки транзакции ────────────────────────────────────────
-function SkeletonRow() {
+// ─── Скелетон одного блока периода ────────────────────────────────────────────
+function SkeletonBlock() {
   return (
-    <div className="flex items-center gap-2 py-1 animate-pulse">
-      <div className="flex-1 h-8 bg-gray-200 rounded-full" />
-      <div className="w-20 h-8 bg-gray-200 rounded-full" />
+    <div className="space-y-2 animate-pulse">
+      <div className="flex gap-3">
+        <div className="flex-1 h-16 bg-gray-200 rounded-2xl" />
+        <div className="flex-1 h-16 bg-gray-200 rounded-2xl" />
+      </div>
+      <div className="h-12 bg-gray-200 rounded-2xl" />
     </div>
   )
 }
 
 // ─── Один период (Сегодня / За прошлую неделю / За прошлый месяц) ────────────
-function HistoryBlock({ label, block, loading, onDetails, onRefresh }) {
+function HistoryBlock({ label, block, loading, onDetails }) {
   const { t } = useLanguage()
-  const transactions = block?.transactions ?? []
-  const totalSum     = block?.total_sum    ?? 0
-
-  const handleDelete = async (id) => {
-    await deleteTransaction(id)
-    onRefresh?.()
-  }
+  const income   = block?.income   ?? 0
+  const expense  = block?.expense  ?? 0
+  const balance  = block?.balance  ?? 0
+  const hasData  = (block?.transactions?.length ?? 0) > 0
 
   return (
     <div className="mb-5">
       {/* Заголовок периода */}
-      <div className="flex items-center justify-between mb-2.5">
-        <span className="bg-orange-500 text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
+      <div className="flex justify-center mb-2.5">
+        <span className="bg-orange-500 text-white rounded-full px-4 py-1 text-xs font-semibold shadow-sm">
           {label}
         </span>
-        <span className="bg-orange-500 text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
-          {loading ? '...' : t('historySection.total', { amount: fmtAmount(totalSum) })}
-        </span>
       </div>
 
-      {/* Список транзакций */}
-      <div className="space-y-1.5">
-        {loading ? (
-          <>
-            <SkeletonRow />
-            <SkeletonRow />
-            <SkeletonRow />
-          </>
-        ) : transactions.length > 0 ? (
-          transactions.slice(0, 4).map(tx => (
-            <TransactionItem
-              key={tx.id}
-              description={tx.description}
-              amount={tx.amount}
-              onDelete={() => handleDelete(tx.id)}
-            />
-          ))
-        ) : (
-          <p className="text-sm text-gray-400 text-center py-3">{t('historySection.empty')}</p>
-        )}
-      </div>
+      {loading ? (
+        <SkeletonBlock />
+      ) : (
+        <>
+          {/* Доход / Расход */}
+          <div className="flex gap-3">
+            <div className="flex-1 bg-blue-500 rounded-2xl px-3 py-2.5 text-center shadow-sm">
+              <div className="text-white/80 text-xs font-medium">{t('historySection.incomeLabel')}</div>
+              <div className="text-white text-base font-bold mt-0.5">{fmtAmount(income)}</div>
+            </div>
+            <div className="flex-1 bg-blue-500 rounded-2xl px-3 py-2.5 text-center shadow-sm">
+              <div className="text-white/80 text-xs font-medium">{t('historySection.expenseLabel')}</div>
+              <div className="text-white text-base font-bold mt-0.5">{fmtAmount(expense)}</div>
+            </div>
+          </div>
+
+          {/* Остаток */}
+          <div className="bg-blue-500 rounded-2xl px-3 py-2.5 text-center shadow-sm mt-2">
+            <div className="text-white/80 text-xs font-medium">{t('historySection.balanceLabel')}</div>
+            <div className="text-white text-base font-bold mt-0.5">{fmtAmount(balance)}</div>
+          </div>
+
+          {!hasData && (
+            <p className="text-sm text-gray-400 text-center py-3">{t('historySection.empty')}</p>
+          )}
+        </>
+      )}
 
       {/* Кнопка «Подробнее» — только если есть данные и колбэк */}
-      {onDetails && transactions.length > 0 && (
+      {onDetails && hasData && !loading && (
         <div className="flex justify-center mt-3">
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -88,7 +89,7 @@ function Divider() {
 }
 
 // ─── Основной компонент ────────────────────────────────────────────────────────
-export default function HistorySection({ history, loading, onWeekDetails, onMonthDetails, onRefresh }) {
+export default function HistorySection({ history, loading, onWeekDetails, onMonthDetails }) {
   const { t } = useLanguage()
   // Блок всегда рендерится — скелетон показывается при loading=true
   return (
@@ -107,7 +108,6 @@ export default function HistorySection({ history, loading, onWeekDetails, onMont
         label={t('historySection.today')}
         block={history?.today}
         loading={loading}
-        onRefresh={onRefresh}
       />
 
       <Divider />
@@ -117,7 +117,6 @@ export default function HistorySection({ history, loading, onWeekDetails, onMont
         block={history?.last_week}
         loading={loading}
         onDetails={onWeekDetails}
-        onRefresh={onRefresh}
       />
 
       <Divider />
@@ -127,7 +126,6 @@ export default function HistorySection({ history, loading, onWeekDetails, onMont
         block={history?.last_month}
         loading={loading}
         onDetails={onMonthDetails}
-        onRefresh={onRefresh}
       />
     </div>
   )

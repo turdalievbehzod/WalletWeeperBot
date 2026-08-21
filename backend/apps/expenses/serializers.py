@@ -26,7 +26,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         model  = Transaction
         fields = [
             'id', 'category', 'category_name', 'category_icon',
-            'amount', 'description', 'created_at',
+            'amount', 'transaction_type', 'description', 'created_at',
         ]
         read_only_fields = ['id']
 

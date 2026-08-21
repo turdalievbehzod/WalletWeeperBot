@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useLanguage } from '../i18n/LanguageContext'
+import TypeToggle from './TypeToggle'
 
 export default function ExpenseForm({
   amount, setAmount,
   selectedCategory, onOpenCategory,
   onOpenTemplates,
+  transactionType, onTransactionTypeChange,
   onSubmit,
   submitting,
 }) {
   const { t } = useLanguage()
   const canSubmit = amount && parseFloat(amount) > 0
+  const isIncome = transactionType === 'income'
 
   return (
     <div className="px-4 py-3 space-y-3">
@@ -51,15 +54,20 @@ export default function ExpenseForm({
         </button>
       </div>
 
+      {/* Доход / Расход switch */}
+      <TypeToggle value={transactionType} onChange={onTransactionTypeChange} />
+
       {/* Add button */}
       <motion.button
         onClick={onSubmit}
         disabled={!canSubmit || submitting}
         whileTap={{ scale: 0.97 }}
         className={`w-full h-12 rounded-2xl text-white font-semibold text-sm shadow-sm transition-all ${
-          canSubmit && !submitting
-            ? 'bg-blue-500 hover:bg-blue-600 shadow-blue-200'
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          !canSubmit || submitting
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : isIncome
+              ? 'bg-blue-500 hover:bg-blue-600 shadow-blue-200'
+              : 'bg-orange-500 hover:bg-orange-600 shadow-orange-200'
         }`}
       >
         {submitting ? t('expenseForm.adding') : t('expenseForm.add')}
