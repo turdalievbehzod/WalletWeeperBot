@@ -41,14 +41,35 @@ jobs:
             docker compose exec -T web python manage.py migrate --noinput
 
             echo "==> Restarting bot..."
-            if [ -f /root/bot.pid ]; then
-              kill $(cat /root/bot.pid) 2>/dev/null || true
-              rm /root/bot.pid
+            # Kill by matching the actual running command, not a PID file —
+            # a stale/out-of-sync bot.pid has repeatedly left the OLD process
+            # alive (still holding port 8001) while this step still reported
+            # success, so every deploy since silently kept running old code.
+            pkill -f "venv/bin/python main.py" 2>/dev/null || true
+            for i in $(seq 1 10); do
+              pgrep -f "venv/bin/python main.py" >/dev/null || break
+              sleep 1
+            done
+            if pgrep -f "venv/bin/python main.py" >/dev/null; then
+              echo "!! Old bot process wouldn't die after 10s, forcing kill -9"
+              pkill -9 -f "venv/bin/python main.py" 2>/dev/null || true
+              sleep 1
             fi
-            sleep 2
+
             cd bot
             setsid nohup venv/bin/python main.py > /root/bot.log 2>&1 &
-            echo $! > /root/bot.pid
-            disown $!
+            NEW_PID=$!
+            echo $NEW_PID > /root/bot.pid
+            disown $NEW_PID
+            cd ..
+
+            echo "==> Verifying the bot actually stayed up..."
+            sleep 5
+            if ! kill -0 $NEW_PID 2>/dev/null; then
+              echo "!! Bot process (pid $NEW_PID) died within 5s of starting — last log lines:"
+              tail -n 40 /root/bot.log
+              exit 1
+            fi
+            echo "==> Bot is running (pid $NEW_PID)"
 
             echo "==> Deploy complete!"
