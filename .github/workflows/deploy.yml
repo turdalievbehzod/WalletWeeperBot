@@ -41,35 +41,72 @@ jobs:
             docker compose exec -T web python manage.py migrate --noinput
 
             echo "==> Restarting bot..."
-            # Kill by matching the actual running command, not a PID file —
-            # a stale/out-of-sync bot.pid has repeatedly left the OLD process
-            # alive (still holding port 8001) while this step still reported
-            # success, so every deploy since silently kept running old code.
-            pkill -f "venv/bin/python main.py" 2>/dev/null || true
+            # Lists PIDs of real running bot processes, filtered strictly by
+            # executable name (python*), never bash/sh — this is the part
+            # that matters. Matching argv alone via `pkill -f "main.py"` is
+            # dangerous here: ssh-action runs this whole script as a single
+            # shell command line, so that command line literally contains
+            # the text "main.py" too (this file), and a plain
+            # `pkill -f "main.py"` matched THAT shell process as well and
+            # killed the deploy script out from under itself — confirmed by
+            # "Process exited with status 143 from signal TERM" right after
+            # this echo, previous deploy attempt. Filtering by comm rules
+            # that out structurally, regardless of what text overlaps.
+            _bot_pids() {
+              for pid in $(pgrep -f "main.py" 2>/dev/null); do
+                comm=$(cat /proc/$pid/comm 2>/dev/null)
+                case "$comm" in python*) echo "$pid" ;; esac
+              done
+            }
+
+            # Primary: kill the process we ourselves last recorded, if it's
+            # still there — a plain PID match has no self-matching risk at all.
+            if [ -f /root/bot.pid ]; then
+              OLD_PID=$(cat /root/bot.pid)
+              if kill -0 "$OLD_PID" 2>/dev/null; then
+                echo "Killing tracked bot pid $OLD_PID"
+                kill "$OLD_PID" 2>/dev/null || true
+              fi
+            fi
+
+            # Safety net: catch any OTHER stray bot process bot.pid doesn't
+            # know about (e.g. left over from an earlier failed deploy).
+            for pid in $(_bot_pids); do
+              echo "Killing stray bot pid $pid"
+              kill "$pid" 2>/dev/null || true
+            done
+
             for i in $(seq 1 10); do
-              pgrep -f "venv/bin/python main.py" >/dev/null || break
+              [ -z "$(_bot_pids)" ] && break
               sleep 1
             done
-            if pgrep -f "venv/bin/python main.py" >/dev/null; then
-              echo "!! Old bot process wouldn't die after 10s, forcing kill -9"
-              pkill -9 -f "venv/bin/python main.py" 2>/dev/null || true
+            STILL="$(_bot_pids)"
+            if [ -n "$STILL" ]; then
+              echo "!! Old bot process(es) wouldn't die after 10s, forcing kill -9:$STILL"
+              kill -9 $STILL 2>/dev/null || true
               sleep 1
             fi
 
             cd bot
             setsid nohup venv/bin/python main.py > /root/bot.log 2>&1 &
-            NEW_PID=$!
-            echo $NEW_PID > /root/bot.pid
-            disown $NEW_PID
+            disown
             cd ..
 
             echo "==> Verifying the bot actually stayed up..."
+            # Don't trust $! for the real pid — setsid forks internally
+            # whenever it's invoked on a process-group leader (exactly what
+            # `command &` makes bash's job into), so $! captures the PID of
+            # a transient parent that exits almost immediately, not the
+            # actual bot process. Discover the real pid after the fact via
+            # the same comm-filtered lookup used above, once things settle.
             sleep 5
-            if ! kill -0 $NEW_PID 2>/dev/null; then
-              echo "!! Bot process (pid $NEW_PID) died within 5s of starting — last log lines:"
+            NEW_PID="$(_bot_pids | head -1)"
+            if [ -z "$NEW_PID" ]; then
+              echo "!! No bot process found running after start — last log lines:"
               tail -n 40 /root/bot.log
               exit 1
             fi
+            echo "$NEW_PID" > /root/bot.pid
             echo "==> Bot is running (pid $NEW_PID)"
 
             echo "==> Deploy complete!"
