@@ -80,6 +80,22 @@ def note_daily_keyboard(lang: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def switch_mode_keyboard(current_mode: str, lang: str) -> InlineKeyboardMarkup:
+    """Shown by /switch — which type free-text amount entries create."""
+    mark = lambda flag: ' ✅' if flag else ''
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=t('switch_expense', lang) + mark(current_mode == 'expense'),
+        callback_data='switch_mode:expense',
+    )
+    builder.button(
+        text=t('switch_income', lang) + mark(current_mode == 'income'),
+        callback_data='switch_mode:income',
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def broadcast_confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
     """Shown after the admin types the announcement text, before it actually goes out."""
     builder = InlineKeyboardBuilder()

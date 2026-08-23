@@ -15,6 +15,14 @@ export const translations = {
       income: 'Доход',
       expense: 'Расход',
     },
+    menu: {
+      navigation: 'Разделы',
+      home: 'Главная',
+      history: 'История',
+      settings: 'Настройки',
+      currency: 'Валюта',
+      language: 'Язык',
+    },
     currencyModal: {
       title: 'Валюта',
       description: 'При смене валюты все расходы будут пересчитаны по текущему курсу',
@@ -94,6 +102,14 @@ export const translations = {
     typeToggle: {
       income: 'Income',
       expense: 'Expense',
+    },
+    menu: {
+      navigation: 'Sections',
+      home: 'Home',
+      history: 'History',
+      settings: 'Settings',
+      currency: 'Currency',
+      language: 'Language',
     },
     currencyModal: {
       title: 'Currency',

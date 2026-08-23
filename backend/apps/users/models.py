@@ -52,6 +52,9 @@ class UserProfile(AbstractBaseUser, PermissionsMixin):
         choices=NOTIFICATION_CHOICES,
         default='off',
     )
+    # When the "don't forget to log your expenses" digest was last delivered —
+    # lets bot-digest-due/ avoid messaging the same user twice within one window.
+    last_digest_sent_at = models.DateTimeField(null=True, blank=True)
 
     is_active   = models.BooleanField(default=True)
     is_staff    = models.BooleanField(default=False)

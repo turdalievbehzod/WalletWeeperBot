@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createTemplate, deleteTemplate } from '../api/expenses'
-import { fmtAmount } from '../utils/format'
+import { cleanAmountInput, fmtAmount, formatAmountInput } from '../utils/format'
 import { useLanguage } from '../i18n/LanguageContext'
 
 export default function TemplateModal({ templates, categories, onApply, onClose, onRefresh }) {
@@ -102,9 +102,10 @@ export default function TemplateModal({ templates, categories, onApply, onClose,
                     className="flex-1 bg-white/20 text-white placeholder-white/60 rounded-xl px-3 py-2 text-sm min-w-0"
                   />
                   <input
-                    type="number"
-                    value={newAmount}
-                    onChange={e => setNewAmount(e.target.value)}
+                    type="text"
+                    inputMode="decimal"
+                    value={formatAmountInput(newAmount)}
+                    onChange={e => setNewAmount(cleanAmountInput(e.target.value))}
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
                     placeholder={t('templateModal.pricePlaceholder')}
                     className="w-24 bg-white/20 text-white placeholder-white/60 rounded-xl px-3 py-2 text-sm"

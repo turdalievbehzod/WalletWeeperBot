@@ -60,8 +60,9 @@ function HistoryBlock({ label, block, loading, onDetails }) {
         </>
       )}
 
-      {/* Кнопка «Подробнее» — только если есть данные и колбэк */}
-      {onDetails && hasData && !loading && (
+      {/* Кнопка «Подробнее» — доступна всегда, независимо от того, есть ли уже
+          данные за период (сам детальный экран покажет «Нет записей»). */}
+      {onDetails && !loading && (
         <div className="flex justify-center mt-3">
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -89,25 +90,17 @@ function Divider() {
 }
 
 // ─── Основной компонент ────────────────────────────────────────────────────────
-export default function HistorySection({ history, loading, onWeekDetails, onMonthDetails }) {
+// Заголовок «История расходов» теперь рендерится в PageHeader на уровне
+// страницы (App.jsx) — этот компонент отвечает только за сами блоки.
+export default function HistorySection({ history, loading, onTodayDetails, onWeekDetails, onMonthDetails }) {
   const { t } = useLanguage()
-  // Блок всегда рендерится — скелетон показывается при loading=true
   return (
     <div className="px-4 py-2">
-
-      {/* Заголовок секции */}
-      <div className="flex justify-center mb-4">
-        <span className="bg-blue-500 text-white rounded-full px-5 py-1.5 text-sm font-semibold shadow-sm">
-          {t('historySection.title')}
-        </span>
-      </div>
-
-      <Divider />
-
       <HistoryBlock
         label={t('historySection.today')}
         block={history?.today}
         loading={loading}
+        onDetails={onTodayDetails}
       />
 
       <Divider />

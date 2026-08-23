@@ -848,3 +848,85 @@ class BotBroadcastTargetsView(APIView):
 
         ids = list(qs.values_list('telegram_id', flat=True))
         return Response({'telegram_ids': ids, 'count': len(ids)})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# "Don't forget to log your expenses" digest (daily/weekly notification_setting)
+# ──────────────────────────────────────────────────────────────────────────────
+
+_DIGEST_DAILY_HOUR = 20    # notify_daily label: "Каждый вечер"
+_DIGEST_WEEKLY_HOUR = 9    # notify_weekly label: "Раз в неделю (в воскресенье утром)"
+_DIGEST_WEEKLY_WEEKDAY = 6  # Sunday (Monday=0 .. Sunday=6, matches Python's .weekday())
+_DIGEST_WINDOW_MINUTES = 5  # bot polls every couple of minutes — window must outlast one poll interval
+
+
+class BotDigestDueView(APIView):
+    """
+    GET /api/v1/expenses/bot-digest-due/
+    Header: X-Bot-Secret
+
+    Returns telegram_ids whose daily/weekly "log your expenses" digest is
+    due right now, computed in each user's own local timezone — the bot
+    never computes wall-clock times itself, same reasoning as everywhere
+    else in this app. 'daily' fires once per evening (20:00-20:04 local),
+    'weekly' fires once per week, Sunday morning (09:00-09:04 local).
+    Polled periodically by the bot; call bot-digest-sent/ right after
+    delivering so the same user isn't messaged twice within the window.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        secret = request.headers.get('X-Bot-Secret', '')
+        if secret != getattr(django_settings, 'BOT_SECRET', ''):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        due_ids = []
+        candidates = UserProfile.objects.filter(
+            notification_setting__in=['daily', 'weekly'], is_active=True,
+        )
+        for user in candidates:
+            user_tz = _user_tz(user)
+            now_local = timezone.now().astimezone(user_tz)
+
+            if user.notification_setting == 'daily':
+                in_window = now_local.hour == _DIGEST_DAILY_HOUR and now_local.minute < _DIGEST_WINDOW_MINUTES
+                cooldown_days = 1
+            else:
+                in_window = (
+                    now_local.weekday() == _DIGEST_WEEKLY_WEEKDAY
+                    and now_local.hour == _DIGEST_WEEKLY_HOUR
+                    and now_local.minute < _DIGEST_WINDOW_MINUTES
+                )
+                cooldown_days = 6
+
+            if not in_window:
+                continue
+            if user.last_digest_sent_at:
+                last_local = user.last_digest_sent_at.astimezone(user_tz)
+                if (now_local.date() - last_local.date()).days < cooldown_days:
+                    continue
+
+            due_ids.append(user.telegram_id)
+
+        return Response({'telegram_ids': due_ids})
+
+
+class BotDigestMarkSentView(APIView):
+    """
+    PATCH /api/v1/expenses/bot-digest-sent/
+    Header: X-Bot-Secret
+    Body:   { "telegram_ids": [123, 456] }
+
+    Called by the bot right after delivering the digest to these users, so
+    bot-digest-due/ won't return them again until their next window.
+    """
+    permission_classes = [AllowAny]
+
+    def patch(self, request):
+        secret = request.headers.get('X-Bot-Secret', '')
+        if secret != getattr(django_settings, 'BOT_SECRET', ''):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        ids = request.data.get('telegram_ids', [])
+        updated = UserProfile.objects.filter(telegram_id__in=ids).update(last_digest_sent_at=timezone.now())
+        return Response({'updated': updated})

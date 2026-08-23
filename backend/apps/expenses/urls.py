@@ -3,6 +3,8 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     BotBroadcastTargetsView,
+    BotDigestDueView,
+    BotDigestMarkSentView,
     BotDueNotesView,
     BotExpenseView,
     BotLanguageView,
@@ -35,6 +37,8 @@ urlpatterns = [
     path('expenses/bot-notify/',            BotNotificationView.as_view(),       name='bot-notify'),
     path('expenses/bot-language/',          BotLanguageView.as_view(),           name='bot-language'),
     path('expenses/bot-broadcast-targets/', BotBroadcastTargetsView.as_view(),   name='bot-broadcast-targets'),
+    path('expenses/bot-digest-due/',        BotDigestDueView.as_view(),          name='bot-digest-due'),
+    path('expenses/bot-digest-sent/',       BotDigestMarkSentView.as_view(),     name='bot-digest-sent'),
     # Note: 'bot/notes/...' (not 'notes/bot-...') on purpose — apps.users.urls
     # registers NoteViewSet at 'notes/<pk>/' and is included before this urls.py
     # in core/urls.py, so anything under 'notes/' here would be swallowed by

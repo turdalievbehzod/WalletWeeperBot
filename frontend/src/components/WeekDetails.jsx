@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import PageHeader from './PageHeader'
 import TransactionItem from './TransactionItem'
 import TypeToggle from './TypeToggle'
 import { fmtAmount } from '../utils/format'
 import { deleteTransaction } from '../api/expenses'
 import { useLanguage } from '../i18n/LanguageContext'
 
-export default function WeekDetails({ days, onBack, onRefresh }) {
+export default function WeekDetails({ days, onBack, onRefresh, onMenu }) {
   const { t } = useLanguage()
   const [filterType, setFilterType] = useState('expense')
 
@@ -17,20 +18,7 @@ export default function WeekDetails({ days, onBack, onRefresh }) {
 
   return (
     <div className="min-h-screen" style={{ background: '#FFF5C4' }}>
-      {/* Back header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-4"
-           style={{ background: '#FFF5C4' }}>
-        <motion.button
-          whileTap={{ scale: 0.92 }}
-          onClick={onBack}
-          className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-sm"
-        >
-          ←
-        </motion.button>
-        <h2 className="text-base font-semibold text-gray-800">
-          {t('weekDetails.title')}
-        </h2>
-      </div>
+      <PageHeader title={t('weekDetails.title')} onBack={onBack} onMenu={onMenu} bg="#FFF5C4" />
 
       <div className="px-4 pb-3">
         <TypeToggle value={filterType} onChange={setFilterType} />

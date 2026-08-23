@@ -56,12 +56,13 @@ class DjangoClient:
         telegram_id: int,
         amount: Decimal | float,
         description: str,
+        transaction_type: str = 'expense',
     ) -> dict:
-        """POST /expenses/bot-create/"""
+        """POST /expenses/bot-create/ — transaction_type: 'expense' | 'income'"""
         return await self._request(
             'POST', '/expenses/bot-create/',
             headers=self._bot_headers(telegram_id),
-            json={'amount': float(amount), 'description': description},
+            json={'amount': float(amount), 'description': description, 'transaction_type': transaction_type},
         )
 
     # ── Notifications ─────────────────────────────────────────────────────────
@@ -153,6 +154,24 @@ class DjangoClient:
             headers=self._bot_headers(),
         )
         return data.get('telegram_ids', [])
+
+    # ── Digest reminders ("don't forget to log your expenses") ────────────────
+
+    async def get_digest_due(self) -> list[int]:
+        """GET /expenses/bot-digest-due/ — telegram_ids whose daily/weekly digest is due right now."""
+        data = await self._request(
+            'GET', '/expenses/bot-digest-due/',
+            headers=self._bot_headers(),
+        )
+        return data.get('telegram_ids', [])
+
+    async def mark_digest_sent(self, telegram_ids: list[int]) -> None:
+        """PATCH /expenses/bot-digest-sent/ — call right after delivering the digest to these users."""
+        await self._request(
+            'PATCH', '/expenses/bot-digest-sent/',
+            headers=self._bot_headers(),
+            json={'telegram_ids': telegram_ids},
+        )
 
     async def aclose(self):
         await self._http.aclose()

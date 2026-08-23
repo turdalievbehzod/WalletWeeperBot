@@ -13,11 +13,14 @@ import {
   createTransaction,
 } from './api/expenses'
 
+import PageHeader     from './components/PageHeader'
+import MenuDrawer     from './components/MenuDrawer'
 import Carousel        from './components/Carousel'
 import ExpenseForm     from './components/ExpenseForm'
 import CategoryModal   from './components/CategoryModal'
 import TemplateModal   from './components/TemplateModal'
 import HistorySection  from './components/HistorySection'
+import TodayDetails    from './components/TodayDetails'
 import WeekDetails     from './components/WeekDetails'
 import MonthDetails    from './components/MonthDetails'
 import CurrencyModal   from './components/CurrencyModal'
@@ -39,20 +42,28 @@ function SectionDivider() {
   )
 }
 
+const PAGE_TRANSITION = {
+  initial: { opacity: 0, x: 16 },
+  animate: { opacity: 1, x: 0 },
+  exit:    { opacity: 0, x: -16 },
+  transition: { type: 'spring', stiffness: 300, damping: 32 },
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // App
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { syncLanguage } = useLanguage()
+  const { syncLanguage, t } = useLanguage()
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [authed,  setAuthed]  = useState(!!localStorage.getItem('access_token'))
   const [loading, setLoading] = useState(true)
 
   // ── View ──────────────────────────────────────────────────────────────────
-  // 'home' | 'week-details' | 'month-details'
+  // 'home' | 'history' | 'today-details' | 'week-details' | 'month-details'
   const [view, setView] = useState('home')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // ── User ──────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null)
@@ -179,87 +190,97 @@ export default function App() {
     setTransactionType('expense')
   }
 
+  const openMenu = () => setMenuOpen(true)
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-cream">
-      {/* ── Currency / language — fixed top-right corner ── */}
-      <div className="fixed top-3 right-3 z-40 flex items-center gap-2">
-        <button
-          onClick={() => setCurrModalOpen(true)}
-          className="flex items-center gap-1.5 pl-3.5 pr-3 h-10 rounded-full bg-white shadow-md active:scale-95 transition-transform text-blue-500 text-sm font-semibold"
-        >
-          <span>{user?.currency ?? 'UZS'}</span>
-          <span className="text-xs opacity-70">⇄</span>
-        </button>
-        <button
-          onClick={() => setLangModalOpen(true)}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md active:scale-95 transition-transform text-lg"
-        >
-          {user?.language === 'en' ? '🇬🇧' : '🇷🇺'}
-        </button>
-      </div>
+      <AnimatePresence>
+        {menuOpen && (
+          <MenuDrawer
+            key="menu"
+            currentView={view}
+            user={user}
+            onNavigate={(v) => { setView(v); setMenuOpen(false) }}
+            onCurrency={() => { setCurrModalOpen(true); setMenuOpen(false) }}
+            onLanguage={() => { setLangModalOpen(true); setMenuOpen(false) }}
+            onClose={() => setMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* ── Detail views (slide over main screen) ── */}
       <AnimatePresence mode="wait">
+        {view === 'home' && (
+          <motion.div key="home" {...PAGE_TRANSITION}>
+            <PageHeader title={t('carousel.title')} onMenu={openMenu} />
+            <div className="max-w-sm mx-auto pb-10">
+              <Carousel summary={summary} />
+
+              <SectionDivider />
+
+              <ExpenseForm
+                amount={amount}
+                setAmount={setAmount}
+                selectedCategory={category}
+                onOpenCategory={() => setCatModalOpen(true)}
+                onOpenTemplates={() => setTmplModalOpen(true)}
+                transactionType={transactionType}
+                onTransactionTypeChange={setTransactionType}
+                onSubmit={handleSubmit}
+                submitting={submitting}
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {view === 'history' && (
+          <motion.div key="history" {...PAGE_TRANSITION}>
+            <PageHeader title={t('historySection.title')} onMenu={openMenu} />
+            <div className="max-w-sm mx-auto pb-10">
+              <HistorySection
+                history={history}
+                loading={loading}
+                onTodayDetails={() => setView('today-details')}
+                onWeekDetails={() => loadDetails('week')}
+                onMonthDetails={() => loadDetails('month')}
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {view === 'today-details' && (
+          <motion.div key="today" {...PAGE_TRANSITION}>
+            <TodayDetails
+              block={history?.today}
+              onBack={() => setView('history')}
+              onRefresh={loadAll}
+              onMenu={openMenu}
+            />
+          </motion.div>
+        )}
+
         {view === 'week-details' && (
-          <motion.div
-            key="week"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 32 }}
-            className="fixed inset-0 z-30 overflow-y-auto"
-          >
-            <WeekDetails days={weekDays} onBack={() => setView('home')} onRefresh={() => loadDetails('week')} />
+          <motion.div key="week" {...PAGE_TRANSITION}>
+            <WeekDetails
+              days={weekDays}
+              onBack={() => setView('history')}
+              onRefresh={() => loadDetails('week')}
+              onMenu={openMenu}
+            />
           </motion.div>
         )}
 
         {view === 'month-details' && (
-          <motion.div
-            key="month"
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 32 }}
-            className="fixed inset-0 z-30 overflow-y-auto"
-          >
-            <MonthDetails weeks={monthWeeks} onBack={() => setView('home')} onRefresh={() => loadDetails('month')} />
+          <motion.div key="month" {...PAGE_TRANSITION}>
+            <MonthDetails
+              weeks={monthWeeks}
+              onBack={() => setView('history')}
+              onRefresh={() => loadDetails('month')}
+              onMenu={openMenu}
+            />
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── Main screen ── */}
-      <div className="max-w-sm mx-auto pb-10">
-
-        {/* Карусель сумм */}
-        <Carousel summary={summary} />
-
-        <SectionDivider />
-
-        {/* Форма добавления дохода/расхода */}
-        <ExpenseForm
-          amount={amount}
-          setAmount={setAmount}
-          selectedCategory={category}
-          onOpenCategory={() => setCatModalOpen(true)}
-          onOpenTemplates={() => setTmplModalOpen(true)}
-          transactionType={transactionType}
-          onTransactionTypeChange={setTransactionType}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
-
-        {/* Декоративный разделитель перед историей */}
-        <SectionDivider />
-
-        {/* История расходов — рендерится всегда, даже при пустых данных */}
-        <HistorySection
-          history={history}
-          loading={loading}
-          onWeekDetails={() => loadDetails('week')}
-          onMonthDetails={() => loadDetails('month')}
-        />
-      </div>
 
       {/* ── Modals ── */}
       <AnimatePresence>

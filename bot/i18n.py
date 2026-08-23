@@ -14,6 +14,7 @@ STRINGS: dict[str, dict[str, str]] = {
             '<code>3500 такси</code>\n\n'
             '⚙️ Команды:\n'
             '/settings — настройка уведомлений и языка\n'
+            '/switch — переключить быстрый ввод между расходом и доходом\n'
             '/note — создать напоминание\n'
             '/notes — список напоминаний'
         ),
@@ -26,6 +27,7 @@ STRINGS: dict[str, dict[str, str]] = {
             '<code>3500 taxi</code>\n\n'
             '⚙️ Commands:\n'
             '/settings — notification and language settings\n'
+            '/switch — toggle quick text entry between expense and income\n'
             '/note — create a reminder\n'
             '/notes — list your reminders'
         ),
@@ -49,6 +51,18 @@ STRINGS: dict[str, dict[str, str]] = {
         'ru': '✅ Расход <b>{amount} сум</b> на «{description}» успешно добавлен!',
         'en': '✅ Expense of <b>{amount}</b> for "{description}" added successfully!',
     },
+    'quick_income_success': {
+        'ru': '✅ Доход <b>{amount} сум</b> на «{description}» успешно добавлен!',
+        'en': '✅ Income of <b>{amount}</b> for "{description}" added successfully!',
+    },
+
+    'switch_pick': {
+        'ru': '🔀 Куда записывать быстрый ввод суммы?',
+        'en': '🔀 Where should quick amount entries go?',
+    },
+    'switch_expense': {'ru': '💸 Расходы', 'en': '💸 Expenses'},
+    'switch_income':  {'ru': '💰 Доходы', 'en': '💰 Income'},
+    'switch_saved': {'ru': '✅ Режим сохранён: {label}', 'en': '✅ Mode saved: {label}'},
 
     'settings_text': {
         'ru': '⚙️ <b>Настройки</b>\n\nВыбери, как часто напоминать о ведении учёта, и язык бота:',
@@ -168,6 +182,17 @@ STRINGS: dict[str, dict[str, str]] = {
         'en': '✅ Broadcast finished: sent {sent}, failed {failed}',
     },
     'broadcast_cancelled': {'ru': '❌ Рассылка отменена', 'en': '❌ Broadcast cancelled'},
+
+    'digest_reminder': {
+        'ru': (
+            '👋 Не забудь заглянуть и записать сегодняшние траты!\n'
+            'Открой приложение или просто напиши мне сумму и описание, например: <code>25000 обед</code>'
+        ),
+        'en': (
+            "👋 Don't forget to log today's spending!\n"
+            'Open the app or just send me an amount and description, e.g.: <code>25000 lunch</code>'
+        ),
+    },
 }
 
 

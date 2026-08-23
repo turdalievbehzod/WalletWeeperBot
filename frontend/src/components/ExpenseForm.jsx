@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useLanguage } from '../i18n/LanguageContext'
+import { cleanAmountInput, formatAmountInput } from '../utils/format'
 import TypeToggle from './TypeToggle'
 
 export default function ExpenseForm({
@@ -22,10 +23,10 @@ export default function ExpenseForm({
         {/* Amount input */}
         <div className="flex-1 flex items-center bg-white rounded-2xl shadow-sm border border-gray-100 px-4 h-12">
           <input
-            type="number"
-            inputMode="numeric"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
+            type="text"
+            inputMode="decimal"
+            value={formatAmountInput(amount)}
+            onChange={e => setAmount(cleanAmountInput(e.target.value))}
             placeholder={t('expenseForm.amountPlaceholder')}
             className="flex-1 text-sm text-gray-800 bg-transparent min-w-0"
           />

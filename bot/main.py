@@ -20,6 +20,7 @@ from handlers import start, admin, expenses, settings, notes
 from handlers.broadcast_server import create_broadcast_app
 from i18n import t
 from middlewares.language import LanguageMiddleware
+from services.input_mode import InputModeStore
 from services.language import LanguageResolver
 from services.pending_broadcast import PendingBroadcastStore
 from services.pending_note import PendingNoteStore
@@ -30,7 +31,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-_NOTE_POLL_INTERVAL = 30  # seconds
+_NOTE_POLL_INTERVAL = 30    # seconds
+_DIGEST_POLL_INTERVAL = 120  # seconds — coarser than notes since the digest window is 5 minutes wide
 
 
 async def _note_reminder_loop(bot: Bot, django: DjangoClient, language_resolver: LanguageResolver):
@@ -62,6 +64,38 @@ async def _note_reminder_loop(bot: Bot, django: DjangoClient, language_resolver:
         await asyncio.sleep(_NOTE_POLL_INTERVAL)
 
 
+async def _digest_reminder_loop(bot: Bot, django: DjangoClient, language_resolver: LanguageResolver):
+    """
+    Polls for users whose daily/weekly "don't forget to log your expenses"
+    digest is due right now (in their own local time — see bot-digest-due/
+    on the backend) and delivers it. Same reasoning as _note_reminder_loop:
+    no Celery/cron in this stack, so the bot owns this schedule too.
+    """
+    while True:
+        try:
+            due_ids = await django.get_digest_due()
+        except DjangoAPIError:
+            logger.exception('Failed to fetch due digests')
+            due_ids = []
+
+        sent_ids = []
+        for telegram_id in due_ids:
+            lang = await language_resolver.get_language(telegram_id, None)
+            try:
+                await bot.send_message(telegram_id, t('digest_reminder', lang), parse_mode='HTML')
+                sent_ids.append(telegram_id)
+            except Exception:
+                logger.warning('Failed to deliver digest reminder to %s', telegram_id)
+
+        if sent_ids:
+            try:
+                await django.mark_digest_sent(sent_ids)
+            except DjangoAPIError:
+                logger.exception('Failed to mark digest sent for %s', sent_ids)
+
+        await asyncio.sleep(_DIGEST_POLL_INTERVAL)
+
+
 async def main():
     cfg = load_config()
 
@@ -78,6 +112,7 @@ async def main():
     language_resolver = LanguageResolver(cfg, django_client)
     pending_notes = PendingNoteStore(cfg)
     pending_broadcast = PendingBroadcastStore(cfg)
+    input_mode = InputModeStore(cfg)
 
     # ── Middleware: пробрасываем зависимости в хэндлеры ───────────────────────
     # Используем workflow_data — данные, доступные в каждом хэндлере через аргументы
@@ -87,6 +122,7 @@ async def main():
     dp['pending_notes']     = pending_notes
     dp['pending_broadcast'] = pending_broadcast
     dp['admin_ids']         = cfg.admin_ids
+    dp['input_mode']        = input_mode
 
     # Резолвит язык пользователя для каждого входящего апдейта → data['lang']
     dp.message.middleware(LanguageMiddleware(language_resolver))
@@ -104,6 +140,7 @@ async def main():
 
     # ── Фоновая доставка напоминаний ────────────────────────────────────────────
     reminder_task = asyncio.create_task(_note_reminder_loop(bot, django_client, language_resolver))
+    digest_task = asyncio.create_task(_digest_reminder_loop(bot, django_client, language_resolver))
 
     # ── Broadcast HTTP-сервер ──────────────────────────────────────────────────
     broadcast_app = create_broadcast_app(bot, cfg.internal_secret)
@@ -119,11 +156,13 @@ async def main():
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         reminder_task.cancel()
+        digest_task.cancel()
         await runner.cleanup()
         await django_client.aclose()
         await language_resolver.aclose()
         await pending_notes.aclose()
         await pending_broadcast.aclose()
+        await input_mode.aclose()
         await bot.session.close()
 
 

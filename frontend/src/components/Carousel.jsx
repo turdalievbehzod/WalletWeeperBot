@@ -30,12 +30,7 @@ export default function Carousel({ summary }) {
   }
 
   return (
-    <div className="flex flex-col items-center py-6 select-none">
-      {/* Title */}
-      <h2 className="text-sm font-medium text-gray-500 mb-4 tracking-wide uppercase">
-        {t('carousel.title')}
-      </h2>
-
+    <div className="flex flex-col items-center pt-2 pb-6 select-none">
       {/* Circles track */}
       <motion.div
         className="relative flex items-center justify-center w-full overflow-hidden"
